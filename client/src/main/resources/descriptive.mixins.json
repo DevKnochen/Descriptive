@@ -1,0 +1,25 @@
+{
+  "required": true,
+  "package": "de.devknochen.descriptive.client.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "AdvancementToastMixin",
+    "BookScreenMixin",
+    "ChatHudMixin",
+    "DeathScreenMixin",
+    "InGameHudMixin",
+    "InGameHudScoreboardMixin",
+    "PlayerEntityRendererMixin",
+    "PlayerListHudMixin",
+    "SignBlockEntityRendererMixin",
+    "TextRendererDrawerMixin",
+    "WrittenBookContentMixin",
+    "BookSigningScreenMixin",
+    "ItemFrameEntityRendererMixin",
+    "DrawContextMixin",
+    "TextFieldWidgetMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

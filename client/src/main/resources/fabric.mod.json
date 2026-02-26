@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "descriptive",
+  "version": "${version}",
+  "name": "Descriptive",
+  "icon": "assets/descriptive/icon_blur.png",
+  "description": "Customize your in-game name with (basically) no limits!",
+  "authors": ["DevKnochen"],
+  "license": "Apache-2.0",
+  "contact": {
+    "sources": "https://github.com/DevKnochen/Descriptive",
+    "issues": "https://github.com/DevKnochen/Descriptive/issues"
+  },
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "de.devknochen.descriptive.Descriptive"
+    ],
+    "client": [
+      "de.devknochen.descriptive.client.DescriptiveClient"
+    ],
+    "server": [
+      "de.devknochen.descriptive.server.DescriptiveServer"
+    ]
+  },
+  "mixins": [
+    "descriptive.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "fabric-api": "*",
+    "minecraft": "1.21.11",
+    "java": ">=21"
+  }
+}
