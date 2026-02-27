@@ -13,7 +13,7 @@ pluginManagement {
     }
 }
 
-rootProject.name = 'DescriptiveServer_Multi'
+rootProject.name = 'server'
 
 include 'common'
 include 'fabric'
