@@ -32,7 +32,7 @@ public class KeybindingHandler {
         configKeyBinding = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.descriptive.config",
                 InputUtil.Type.KEYSYM,
-                GLFW.GLFW_KEY_R,
+                GLFW.GLFW_KEY_U,
                 KeyBinding.Category.MISC
         ));
 
