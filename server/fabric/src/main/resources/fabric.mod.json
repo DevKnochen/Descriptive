@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "descriptive-server",
+  "version": "${version}",
+  "name": "Descriptive",
+  "description": "Customize your in-game name with (basically) no limits!",
+  "authors": ["DevKnochen"],
+  "license": "Apache-2.0",
+  "environment": "server",
+  "entrypoints": {
+    "server": ["de.devknochen.descriptiveserver.fabric.DescriptiveServer"]
+  },
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "fabric-api": "*",
+    "minecraft": "1.21.11",
+    "java": ">=21"
+  }
+}
