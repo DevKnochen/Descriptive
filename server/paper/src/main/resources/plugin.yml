@@ -1,6 +1,0 @@
-name: Descriptive
-author: DevKnochen
-description: Customize your in-game name with (basically) no limits!
-version: '1.0.0'
-api-version: '1.21'
-main: de.devknochen.descriptiveserver.paper.DescriptiveServer
