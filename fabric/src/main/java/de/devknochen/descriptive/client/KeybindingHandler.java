@@ -26,14 +26,14 @@ import org.lwjgl.glfw.GLFW;
 public class KeybindingHandler {
 
     private static KeyBinding configKeyBinding;
+    public static final KeyBinding.Category DESCRIPTIVE_CATEGORY = KeyBinding.Category.create(net.minecraft.util.Identifier.of("descriptive", "descriptive"));
 
     public static void register() {
-
         configKeyBinding = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.descriptive.config",
                 InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_U,
-                KeyBinding.Category.MISC
+                DESCRIPTIVE_CATEGORY
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
