@@ -6,7 +6,7 @@
 [![Donate](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/knochennmc)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge)](https://github.com/DevKnochen/Descriptive/blob/main/LICENSE)
 
-### Why have a boring white name when you could have _**this**_:
+### Why have a boring white name when you could have _**this**_?
 
 ![Descriptive in Action](https://cdn.modrinth.com/data/C9EtSpDt/images/8d53436abc3c540359a6e38549581563c37f3ba9.gif)
 
@@ -106,6 +106,6 @@ Reach out to us at contact@knochenn.de
 
 <div align="center">
 
-*Enjoyed it? A ❤️ on Modrinth or a ⭐ on GitHub genuinely makes our day.*
+*Enjoyed it? A ⭐ on GitHub or a ❤️ on Modrinth genuinely makes our day.*
 
 </div>
