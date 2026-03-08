@@ -4,7 +4,6 @@
 
 [![Email](https://img.shields.io/badge/Contact-EA4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:contact@knochenn.de)
 [![Donate](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/knochennmc)
-[![Source](https://img.shields.io/badge/View%20Source-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/DevKnochen/Descriptive)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge)](https://github.com/DevKnochen/Descriptive/blob/main/LICENSE)
 
 ### Why have a boring white name when you could have _**this**_:
