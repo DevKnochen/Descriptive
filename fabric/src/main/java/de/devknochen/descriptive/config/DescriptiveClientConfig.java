@@ -104,11 +104,8 @@ public class DescriptiveClientConfig {
         }
     }
 
-    // ── Parsing helpers ────────────────────────────────────────────────────────
-
     private static String stripComment(String line) {
         int i = line.indexOf('#');
-        // make sure # is not inside a quoted string
         if (i == -1) return line;
         boolean inQuote = false;
         for (int j = 0; j < line.length(); j++) {
@@ -160,8 +157,6 @@ public class DescriptiveClientConfig {
         return result;
     }
 
-    // ── Writing helpers ────────────────────────────────────────────────────────
-
     private static String toStringList(List<String> list) {
         if (list.isEmpty()) return "[]";
         StringBuilder sb = new StringBuilder("[");
@@ -193,8 +188,6 @@ public class DescriptiveClientConfig {
         return sb.append("]").toString();
     }
 
-    // ── Internal setters (no save) ─────────────────────────────────────────────
-
     public void setColorInternal(int color)                { this.color = color & 0xFFFFFF; }
     public void setBoldInternal(boolean bold)              { this.bold = bold; }
     public void setItalicInternal(boolean italic)          { this.italic = italic; }
@@ -204,8 +197,6 @@ public class DescriptiveClientConfig {
     public void setAnimationSpeedInternal(float speed)     { this.animationSpeed = Math.max(0.1f, Math.min(5.0f, speed)); }
     public void setGradientColorsInternal(List<Integer> c) { this.gradientColors = new ArrayList<>(c); }
     public void setGradientColors(List<Integer> c)         { this.gradientColors = new ArrayList<>(c); save(); }
-
-    // ── Getters ────────────────────────────────────────────────────────────────
 
     public int getColor()                    { return color; }
     public boolean isBold()                  { return bold; }

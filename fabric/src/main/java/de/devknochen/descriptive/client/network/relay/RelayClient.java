@@ -14,10 +14,6 @@
  * limitations under the License.
  */
 
-//
-// AT THIS STAGE, THIS CODE IS NOT FUNCTIONAL AND ONLY A PLACEHOLDER FOR A FUTURE FUNCTION
-//
-
 package de.devknochen.descriptive.client.network.relay;
 
 import com.google.gson.Gson;
@@ -25,8 +21,13 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import de.devknochen.descriptive.Descriptive;
+import de.devknochen.descriptive.client.DescriptiveClient;
 import de.devknochen.descriptive.client.network.CustomNameCache;
 import de.devknochen.descriptive.common.network.packet.CustomNameData;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.text.MutableText;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -39,21 +40,27 @@ import java.util.concurrent.CompletionStage;
 
 public class RelayClient implements WebSocket.Listener {
 
-    private static final String RELAY_SERVER_URL = "wss://relay-descriptive.knochenn.de/sync";
-    private static final Gson GSON = new Gson();
+    private static final String RELAY_SERVER_URL       = "wss://relay-descriptive.knochenn.de/sync";
+    private static final String RELAY_PROTOCOL_VERSION = "A3.0";
+    private static final Gson   GSON                   = new Gson();
 
     private WebSocket webSocket;
-    private String currentServer;
-    private UUID localPlayerUuid;
-    private boolean connected = false;
+    private String    currentServer;
+    private UUID      localPlayerUuid;
+    private boolean   connected = false;
+
+    private static boolean isRelayDisabled() {
+        return !DescriptiveClient.getInstance().getConfig().isRelayEnabled();
+    }
 
     public CompletableFuture<Boolean> connect(String serverAddress, UUID playerUuid) {
+        if (isRelayDisabled()) {
+            return CompletableFuture.completedFuture(false);
+        }
+
         if (connected) disconnect();
-
-        this.currentServer = serverAddress;
+        this.currentServer   = serverAddress;
         this.localPlayerUuid = playerUuid;
-
-        Descriptive.LOGGER.info("[RELAY] Connecting to relay server...");
 
         @SuppressWarnings("resource")
         HttpClient client = HttpClient.newHttpClient();
@@ -66,8 +73,8 @@ public class RelayClient implements WebSocket.Listener {
                     sendJoinMessage();
                     return true;
                 })
-                .exceptionally(throwable -> {
-                    Descriptive.LOGGER.error("[RELAY] Failed to connect", throwable);
+                .exceptionally(t -> {
+                    Descriptive.LOGGER.error("[RELAY] Failed to connect", t);
                     return false;
                 });
     }
@@ -81,55 +88,60 @@ public class RelayClient implements WebSocket.Listener {
     }
 
     public void broadcastCustomName(CustomNameData data) {
-        if (!connected || webSocket == null) {
-            return;
-        }
+        if (isRelayDisabled() || !connected || webSocket == null) return;
 
-        JsonObject message = new JsonObject();
-        message.addProperty("type", "custom_name");
-        message.addProperty("server", currentServer);
-        message.addProperty("playerUuid", data.playerUuid().toString());
-        message.addProperty("color", data.color());
-        message.addProperty("bold", data.bold());
-        message.addProperty("italic", data.italic());
-        message.addProperty("underlined", data.underlined());
-        message.addProperty("strikethrough", data.strikethrough());
-        message.addProperty("animationEnabled", data.animationEnabled());
+        JsonObject msg = new JsonObject();
+        msg.addProperty("type",             "custom_name");
+        msg.addProperty("server",           currentServer);
+        msg.addProperty("playerUuid",       data.playerUuid().toString());
+        msg.addProperty("color",            data.color());
+        msg.addProperty("bold",             data.bold());
+        msg.addProperty("italic",           data.italic());
+        msg.addProperty("underlined",       data.underlined());
+        msg.addProperty("strikethrough",    data.strikethrough());
+        msg.addProperty("animationEnabled", data.animationEnabled());
 
         JsonArray animArray = new JsonArray();
-        for (String anim : data.animationTypes()) animArray.add(anim);
-        message.add("animationTypes", animArray);
-        message.addProperty("animationSpeed", data.animationSpeed());
+        for (String a : data.animationTypes()) animArray.add(a);
+        msg.add("animationTypes", animArray);
+        msg.addProperty("animationSpeed", data.animationSpeed());
 
         JsonArray gradArray = new JsonArray();
         for (int c : data.gradientColors()) gradArray.add(c);
-        message.add("gradientColors", gradArray);
+        msg.add("gradientColors", gradArray);
 
-        webSocket.sendText(GSON.toJson(message), true);
+        webSocket.sendText(GSON.toJson(msg), true);
     }
 
     private void sendJoinMessage() {
-        JsonObject message = new JsonObject();
-        message.addProperty("type", "join");
-        message.addProperty("server", currentServer);
-        message.addProperty("playerUuid", localPlayerUuid.toString());
-        webSocket.sendText(GSON.toJson(message), true);
+        JsonObject msg = new JsonObject();
+        msg.addProperty("type",       "join");
+        msg.addProperty("server",     currentServer);
+        msg.addProperty("playerUuid", localPlayerUuid.toString());
+        msg.addProperty("version",    RELAY_PROTOCOL_VERSION);
+        webSocket.sendText(GSON.toJson(msg), true);
     }
 
     private void sendLeaveMessage() {
-        JsonObject message = new JsonObject();
-        message.addProperty("type", "leave");
-        message.addProperty("server", currentServer);
-        message.addProperty("playerUuid", localPlayerUuid.toString());
-        webSocket.sendText(GSON.toJson(message), true);
+        JsonObject msg = new JsonObject();
+        msg.addProperty("type",       "leave");
+        msg.addProperty("server",     currentServer);
+        msg.addProperty("playerUuid", localPlayerUuid.toString());
+        webSocket.sendText(GSON.toJson(msg), true);
     }
 
     @Override
     public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
         try {
-            JsonObject message = GSON.fromJson(data.toString(), JsonObject.class);
-            if ("custom_name".equals(message.get("type").getAsString())) {
-                handleCustomNameMessage(message);
+            JsonObject msg = GSON.fromJson(data.toString(), JsonObject.class);
+            String type = msg.has("type") ? msg.get("type").getAsString() : "";
+            switch (type) {
+                case "custom_name"      -> handleCustomName(msg);
+                case "kicked"           -> handleKicked(msg);
+                case "banned"           -> handleBanned(msg);
+                case "server_blocked"   -> handleServerBlocked(msg);
+                case "version_rejected" -> handleVersionRejected();
+                case "blocked"          -> handleLegacyBlocked(msg);
             }
         } catch (Exception e) {
             Descriptive.LOGGER.error("[RELAY] Error processing message", e);
@@ -140,6 +152,7 @@ public class RelayClient implements WebSocket.Listener {
     @Override
     public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
         connected = false;
+        Descriptive.LOGGER.info("[RELAY] Connection closed (code={}, reason={})", statusCode, reason);
         return WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
     }
 
@@ -149,46 +162,109 @@ public class RelayClient implements WebSocket.Listener {
         connected = false;
     }
 
-    private void handleCustomNameMessage(JsonObject message) {
+    private void handleKicked(JsonObject msg) {
+        connected = false;
+        String reason = msg.has("reason") ? msg.get("reason").getAsString() : "You were kicked by an admin.";
+        Descriptive.LOGGER.warn("[RELAY] Kicked: {}", reason);
+        sendChatNotice(
+                Text.literal("⚠ You were kicked from the Descriptive relay.").formatted(Formatting.YELLOW)
+                        .append(Text.literal("\n  Reason: ").formatted(Formatting.GRAY))
+                        .append(Text.literal(reason).formatted(Formatting.WHITE))
+        );
+    }
+
+    private void handleBanned(JsonObject msg) {
+        connected = false;
+        String reason = msg.has("reason") ? msg.get("reason").getAsString() : "Your IP or account has been banned.";
+        Descriptive.LOGGER.warn("[RELAY] Banned: {}", reason);
+        sendChatNotice(
+                Text.literal("✖ You are banned from the Descriptive relay.").formatted(Formatting.RED)
+                        .append(Text.literal("\n  Reason: ").formatted(Formatting.GRAY))
+                        .append(Text.literal(reason).formatted(Formatting.WHITE))
+        );
+    }
+
+    private void handleServerBlocked(JsonObject msg) {
+        String reason = msg.has("reason") ? msg.get("reason").getAsString() : "This server is not permitted on the relay.";
+        Descriptive.LOGGER.warn("[RELAY] Server blocked: {}", reason);
+        sendChatNotice(
+                Text.literal("⚠ Descriptive relay is unavailable on this server.").formatted(Formatting.YELLOW)
+                        .append(Text.literal("\n  " + reason).formatted(Formatting.GRAY))
+        );
+    }
+
+    private void handleVersionRejected() {
+        connected = false;
+        Descriptive.LOGGER.warn("[RELAY] Version rejected by relay.");
+        sendChatNotice(
+                Text.literal("✖ Your Descriptive mod is outdated.").formatted(Formatting.RED)
+                        .append(Text.literal("\n  Please update the mod to continue using the relay.").formatted(Formatting.GRAY))
+        );
+    }
+
+    private void handleLegacyBlocked(JsonObject msg) {
+        String reason = msg.has("reason") ? msg.get("reason").getAsString() : "unknown";
+        switch (reason) {
+            case "client_ip" -> handleBanned(msg);
+            case "server_ip" -> handleServerBlocked(msg);
+            default -> {
+                connected = false;
+                sendChatNotice(
+                        Text.literal("✖ Blocked by Descriptive relay: " + reason).formatted(Formatting.RED)
+                );
+            }
+        }
+    }
+
+    private void handleCustomName(JsonObject msg) {
         try {
-            UUID playerUuid = UUID.fromString(message.get("playerUuid").getAsString());
+            UUID playerUuid = UUID.fromString(msg.get("playerUuid").getAsString());
             if (playerUuid.equals(localPlayerUuid)) return;
 
-            List<String> animationTypes = new ArrayList<>();
-            float animationSpeed = 1.0f;
-            boolean animationEnabled = false;
-            List<Integer> gradientColors = new ArrayList<>(List.of(0xFF0000, 0x0000FF));
+            List<String>  animTypes   = new ArrayList<>();
+            float         animSpeed   = 1.0f;
+            boolean       animEnabled = false;
+            List<Integer> gradColors  = new ArrayList<>(List.of(0xFF0000, 0x0000FF));
 
-            if (message.has("animationEnabled")) {
-                animationEnabled = message.get("animationEnabled").getAsBoolean();
-                if (message.has("animationTypes")) {
-                    for (JsonElement e : message.getAsJsonArray("animationTypes"))
-                        animationTypes.add(e.getAsString());
-                }
-                if (message.has("animationSpeed"))
-                    animationSpeed = message.get("animationSpeed").getAsFloat();
+            if (msg.has("animationEnabled")) {
+                animEnabled = msg.get("animationEnabled").getAsBoolean();
+                if (msg.has("animationTypes"))
+                    for (JsonElement e : msg.getAsJsonArray("animationTypes"))
+                        animTypes.add(e.getAsString());
+                if (msg.has("animationSpeed"))
+                    animSpeed = msg.get("animationSpeed").getAsFloat();
             }
-
-            if (message.has("gradientColors")) {
-                gradientColors = new ArrayList<>();
-                for (JsonElement e : message.getAsJsonArray("gradientColors"))
-                    gradientColors.add(e.getAsInt());
+            if (msg.has("gradientColors")) {
+                gradColors = new ArrayList<>();
+                for (JsonElement e : msg.getAsJsonArray("gradientColors"))
+                    gradColors.add(e.getAsInt());
             }
 
             CustomNameCache.put(CustomNameData.create(
                     playerUuid,
-                    message.get("color").getAsInt(),
-                    message.get("bold").getAsBoolean(),
-                    message.get("italic").getAsBoolean(),
-                    message.get("underlined").getAsBoolean(),
-                    message.get("strikethrough").getAsBoolean(),
-                    animationTypes,
-                    animationSpeed,
-                    animationEnabled,
-                    gradientColors
+                    msg.get("color").getAsInt(),
+                    msg.get("bold").getAsBoolean(),
+                    msg.get("italic").getAsBoolean(),
+                    msg.get("underlined").getAsBoolean(),
+                    msg.get("strikethrough").getAsBoolean(),
+                    animTypes, animSpeed, animEnabled, gradColors
             ));
         } catch (Exception e) {
-            Descriptive.LOGGER.error("[RELAY] Error handling custom name", e);
+            Descriptive.LOGGER.error("[RELAY] Error handling custom_name", e);
         }
+    }
+
+    private static void sendChatNotice(MutableText content) {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc == null) return;
+        mc.execute(() -> {
+            if (mc.player != null) {
+                mc.player.sendMessage(
+                        Text.literal("[Descriptive] ").formatted(Formatting.DARK_GRAY)
+                                .append(content),
+                        false
+                );
+            }
+        });
     }
 }
