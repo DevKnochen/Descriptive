@@ -19,38 +19,39 @@ package de.devknochen.descriptive.client.mixin;
 import de.devknochen.descriptive.client.animation.PlayerAnimationContext;
 import de.devknochen.descriptive.common.util.NameBuilder;
 import de.devknochen.descriptive.common.util.TextReplacer;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.entity.ItemFrameEntityRenderer;
-import net.minecraft.entity.decoration.ItemFrameEntity;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.entity.ItemFrameRenderer;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.decoration.ItemFrame;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(ItemFrameEntityRenderer.class)
+@Mixin(ItemFrameRenderer.class)
 public class ItemFrameEntityRendererMixin {
 
     @Inject(
-            method = "getDisplayName(Lnet/minecraft/entity/decoration/ItemFrameEntity;)Lnet/minecraft/text/Text;",
+            method = "getNameTag(Lnet/minecraft/world/entity/decoration/ItemFrame;)Lnet/minecraft/network/chat/Component;",
             at = @At("RETURN"),
-            cancellable = true)
-    private void descriptive$modifyDisplayName(ItemFrameEntity entity,
-                                               CallbackInfoReturnable<Text> cir) {
-        Text text = cir.getReturnValue();
+            cancellable = true
+    )
+    private void descriptive$modifyDisplayName(ItemFrame entity,
+                                               CallbackInfoReturnable<Component> cir) {
+        Component text = cir.getReturnValue();
         if (text == null) return;
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client == null || client.world == null) return;
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || client.level == null) return;
 
         try {
             String str = text.getString();
-            Text result = text;
-            for (var player : client.world.getPlayers()) {
+            Component result = text;
+            for (var player : client.level.players()) {
                 String playerName = player.getName().getString();
                 if (str.contains(playerName)) {
-                    PlayerAnimationContext.setCurrentPlayer(player.getUuid());
+                    PlayerAnimationContext.setCurrentPlayer(player.getUUID());
                     result = TextReplacer.replaceText(result, playerName,
-                            NameBuilder.buildCustomName(player.getUuid(), playerName));
+                            NameBuilder.buildCustomName(player.getUUID(), playerName));
                 }
             }
             if (result != text) cir.setReturnValue(result);

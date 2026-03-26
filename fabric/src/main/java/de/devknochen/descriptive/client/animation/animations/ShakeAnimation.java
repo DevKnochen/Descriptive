@@ -19,17 +19,14 @@ package de.devknochen.descriptive.client.animation.animations;
 import de.devknochen.descriptive.client.animation.Animation;
 
 public class ShakeAnimation implements Animation {
-
     @Override
     public int getColor(int charIndex, int totalChars, float time, int baseColor, java.util.List<Integer> gradientColors) {
         return baseColor;
     }
-
     @Override
     public String getName() { return "Shake"; }
-
     @Override
     public String getDescription() {
-        return "Random jitter";
+        return "High-frequency random jitter";
     }
 }

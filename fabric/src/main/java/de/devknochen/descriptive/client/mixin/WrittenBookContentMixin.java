@@ -18,14 +18,14 @@ package de.devknochen.descriptive.client.mixin;
 
 import de.devknochen.descriptive.client.animation.PlayerAnimationContext;
 import de.devknochen.descriptive.common.util.NameBuilder;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.component.ComponentsAccess;
-import net.minecraft.component.type.WrittenBookContentComponent;
-import net.minecraft.item.Item;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.StringHelper;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.component.DataComponentGetter;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.StringUtil;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.WrittenBookContent;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -35,31 +35,31 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.function.Consumer;
 
-@Mixin(WrittenBookContentComponent.class)
+@Mixin(WrittenBookContent.class)
 public class WrittenBookContentMixin {
 
     @Shadow @Final private String author;
     @Shadow @Final private int generation;
 
-    @Inject(method = "appendTooltip", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "addToTooltip", at = @At("HEAD"), cancellable = true)
     private void descriptive$modifyAuthorTooltip(Item.TooltipContext context,
-                                                 Consumer<Text> textConsumer,
-                                                 TooltipType type,
-                                                 ComponentsAccess components,
+                                                 Consumer<Component> textConsumer,
+                                                 TooltipFlag type,
+                                                 DataComponentGetter components,
                                                  CallbackInfo ci) {
-        if (StringHelper.isBlank(author)) return;
+        if (StringUtil.isBlank(author)) return;
 
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client == null || client.world == null) return;
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || client.level == null) return;
 
-        for (var player : client.world.getPlayers()) {
+        for (var player : client.level.players()) {
             if (author.equals(player.getName().getString())) {
-                PlayerAnimationContext.setCurrentPlayer(player.getUuid());
-                Text customName = NameBuilder.buildCustomName(player.getUuid(), author);
-                textConsumer.accept(Text.translatable("book.byAuthor", customName)
-                        .formatted(Formatting.GRAY));
-                textConsumer.accept(Text.translatable("book.generation." + generation)
-                        .formatted(Formatting.GRAY));
+                PlayerAnimationContext.setCurrentPlayer(player.getUUID());
+                Component customName = NameBuilder.buildCustomName(player.getUUID(), author);
+                textConsumer.accept(Component.translatable("book.byAuthor", customName)
+                        .withStyle(ChatFormatting.GRAY));
+                textConsumer.accept(Component.translatable("book.generation." + generation)
+                        .withStyle(ChatFormatting.GRAY));
                 ci.cancel();
                 return;
             }

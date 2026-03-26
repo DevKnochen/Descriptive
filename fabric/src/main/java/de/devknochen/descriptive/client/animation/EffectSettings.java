@@ -20,6 +20,9 @@ public class EffectSettings {
     public final int index;
     public float offsetX;
     public float offsetY;
+    public float rotationRadians;
+    public float pivotXFactor;
+    public float pivotYFactor;
     public float r;
     public float g;
     public float b;
@@ -29,6 +32,9 @@ public class EffectSettings {
         this.index   = index;
         this.offsetX = 0;
         this.offsetY = 0;
+        this.rotationRadians = 0;
+        this.pivotXFactor = 0.5f;
+        this.pivotYFactor = 0.5f;
         this.r       = 1.0f;
         this.g       = 1.0f;
         this.b       = 1.0f;

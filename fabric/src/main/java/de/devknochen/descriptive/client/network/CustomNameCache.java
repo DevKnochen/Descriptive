@@ -23,29 +23,22 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class CustomNameCache {
-
     private static final Map<UUID, CustomNameData> cache = new ConcurrentHashMap<>();
-
     public static void put(CustomNameData data) {
         cache.put(data.playerUuid(), data);
     }
-
     public static CustomNameData get(UUID playerUuid) {
         return cache.get(playerUuid);
     }
-
     public static boolean has(UUID playerUuid) {
         return cache.containsKey(playerUuid);
     }
-
     public static void clear() {
         cache.clear();
     }
-
     public static int size() {
         return cache.size();
     }
-
     public static Map<UUID, CustomNameData> getAllEntries() {
         return new ConcurrentHashMap<>(cache);
     }

@@ -25,20 +25,16 @@ public class GradientAnimation implements Animation {
     @Override
     public int getColor(int charIndex, int totalChars, float time, int baseColor, List<Integer> gradientColors) {
         if (gradientColors == null || gradientColors.size() < 2) return baseColor;
-
         int segments = gradientColors.size() - 1;
         float t = ((float) charIndex / Math.max(totalChars - 1, 1)) * segments;
         int segment = (int) t;
         if (segment >= segments) segment = segments - 1;
         float localT = t - segment;
-
         int c1 = gradientColors.get(segment);
         int c2 = gradientColors.get(segment + 1);
-
         int r = (int) (((c1 >> 16) & 0xFF) * (1 - localT) + ((c2 >> 16) & 0xFF) * localT);
         int g = (int) (((c1 >> 8)  & 0xFF) * (1 - localT) + ((c2 >> 8)  & 0xFF) * localT);
         int b = (int) ((c1 & 0xFF) * (1 - localT) + (c2 & 0xFF) * localT);
-
         return (r << 16) | (g << 8) | b;
     }
 

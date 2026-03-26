@@ -20,9 +20,9 @@ import de.devknochen.descriptive.client.animation.PlayerAnimationContext;
 import de.devknochen.descriptive.common.util.NameBuilder;
 import de.devknochen.descriptive.common.util.TextReplacer;
 import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.network.chat.Component;
 
 import java.util.List;
 import java.util.ListIterator;
@@ -31,24 +31,22 @@ public class ItemTooltipHandler {
 
     public static void register() {
         ItemTooltipCallback.EVENT.register((stack, tooltipContext, tooltipType, lines) -> {
-            MinecraftClient client = MinecraftClient.getInstance();
-            if (client == null || client.world == null) return;
-
-            List<AbstractClientPlayerEntity> players = client.world.getPlayers();
+            Minecraft client = Minecraft.getInstance();
+            if (client == null || client.level == null) return;
+            List<AbstractClientPlayer> players = client.level.players();
             if (players.isEmpty()) return;
-
-            ListIterator<Text> it = lines.listIterator();
+            ListIterator<Component> it = lines.listIterator();
             while (it.hasNext()) {
-                Text line = it.next();
+                Component line = it.next();
                 if (line == null) continue;
                 String lineStr = line.getString();
-                Text result = line;
-                for (AbstractClientPlayerEntity player : players) {
+                Component result = line;
+                for (AbstractClientPlayer player : players) {
                     String name = player.getName().getString();
                     if (lineStr.contains(name)) {
-                        PlayerAnimationContext.setCurrentPlayer(player.getUuid());
+                        PlayerAnimationContext.setCurrentPlayer(player.getUUID());
                         result = TextReplacer.replaceText(result, name,
-                                NameBuilder.buildCustomName(player.getUuid(), name));
+                                NameBuilder.buildCustomName(player.getUUID(), name));
                     }
                 }
                 if (result != line) it.set(result);

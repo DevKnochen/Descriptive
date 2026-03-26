@@ -12,7 +12,7 @@
 
 *Colors. Formatting. Animations. Your name, your style.*
  
- **⚠️ Project is in an early alpha! Expect some bugs. ⚠️**
+ **⚠️ ⚠️ Project is now in Beta! Expect some bugs. ⚠️ ⚠️**
 
 </div>
 

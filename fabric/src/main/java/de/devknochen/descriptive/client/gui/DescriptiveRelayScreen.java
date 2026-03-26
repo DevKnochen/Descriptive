@@ -18,288 +18,121 @@ package de.devknochen.descriptive.client.gui;
 
 import de.devknochen.descriptive.client.DescriptiveClient;
 import de.devknochen.descriptive.config.DescriptiveClientConfig;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.CheckboxWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Checkbox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.WebSocket;
+import java.net.http.*;
 import java.time.Duration;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
+import java.util.concurrent.*;
 
 public class DescriptiveRelayScreen extends Screen {
-
-    private static final int    MARGIN      = 30;
-    private static final int    LINE_H      = 13;
-    private static final int    ICON_COL    = 10;
-    private static final int    TEXT_INDENT = ICON_COL + 4;
-    private static final String RELAY_URL   = "wss://relay-descriptive.knochenn.de/sync";
-
-    private final Screen                parent;
+    private static final int MARGIN=30, LINE_H=13, TEXT_INDENT=14;
+    private static final String RELAY_URL="wss://relay-descriptive.knochenn.de/sync";
+    private final @Nullable Screen parent;
     private final DescriptiveClientConfig config;
+    private boolean accepted, relayEnabled;
+    @SuppressWarnings("FieldCanBeLocal") private Checkbox acceptCheckbox;
+    private Button toggleButton, checkStatusButton;
+    private Boolean relayOnline=null;
+    private boolean checkingRelay=false;
+    private long pingMs=-1;
 
-    private boolean accepted;
-    private boolean relayEnabled;
-
-    @SuppressWarnings("FieldCanBeLocal")
-    private CheckboxWidget acceptCheckbox;
-    private ButtonWidget   toggleButton;
-    private ButtonWidget   checkStatusButton;
-
-    private Boolean relayOnline   = null;
-    private boolean checkingRelay = false;
-    private long    pingMs        = -1;
-
-    private record ContentLine(String icon, int iconColor, String text) {}
-
-    private static final ContentLine[] BENEFITS = {
-            new ContentLine("✔", 0xFF55FF55, "Custom names will work on any server, vanilla or modded."),
-            new ContentLine("✔", 0xFF55FF55, "Connection opens on server join and closes when you"),
-            new ContentLine(null, 0,         "leave. No persistent background process."),
-            new ContentLine("✔", 0xFF55FF55, "You can enable or disable this function at any time."),
-            new ContentLine("✔", 0xFF55FF55, "The relay connection code is open source."),
+    private record ContentLine(@Nullable String icon, int iconColor, String text){}
+    private static final ContentLine[] BENEFITS={
+            new ContentLine("✔",0xFF55FF55,"Custom names will work on any server, vanilla or modded."),
+            new ContentLine("✔",0xFF55FF55,"Connection opens on server join and closes when you"),
+            new ContentLine(null,0,"leave. No persistent background process."),
+            new ContentLine("✔",0xFF55FF55,"You can enable or disable this function at any time."),
+            new ContentLine("✔",0xFF55FF55,"The relay connection code is open source."),
+    };
+    private static final ContentLine[] WARNINGS={
+            new ContentLine("⚠",0xFFFFFF55,"Only your Minecraft UUID, styling data and current server"),
+            new ContentLine(null,0,"address are transmitted to an external websocket server"),
+            new ContentLine(null,0,"called relay."),
+            new ContentLine("⚠",0xFFFFFF55,"Transmitted data is never stored. It exists only"),
+            new ContentLine(null,0,"in the relay's RAM and is cleared on disconnect."),
+            new ContentLine("⚠",0xFFFFFF55,"The relay is community-run on a best-effort basis."),
+            new ContentLine(null,0,"There is no guaranteed uptime."),
     };
 
-    private static final ContentLine[] WARNINGS = {
-            new ContentLine("⚠", 0xFFFFFF55, "Only your Minecraft UUID, styling data and current server"),
-            new ContentLine(null, 0,         "address are transmitted to an external websocket server"),
-            new ContentLine(null, 0,         "called relay."),
-            new ContentLine("⚠", 0xFFFFFF55, "Transmitted data is never stored. It exists only"),
-            new ContentLine(null, 0,         "in the relay's RAM and is cleared on disconnect."),
-            new ContentLine("⚠", 0xFFFFFF55, "The relay is community-run on a best-effort basis."),
-            new ContentLine(null, 0,         "There is no guaranteed uptime."),
-    };
-
-    public DescriptiveRelayScreen(Screen parent) {
-        super(Text.literal("Relay Settings"));
-        this.parent = parent;
-        this.config = DescriptiveClient.getInstance().getConfig();
-        this.relayEnabled = config.isRelayEnabled();
-        this.accepted     = config.isRelayEnabled();
+    public DescriptiveRelayScreen(@Nullable Screen parent){
+        super(Component.literal("Relay Settings"));
+        this.parent=parent; this.config=DescriptiveClient.getInstance().getConfig();
+        this.relayEnabled=config.isRelayEnabled(); this.accepted=config.isRelayEnabled();
     }
 
     @Override
-    protected void init() {
-        int cx       = this.width / 2;
-        int contentW = Math.min(420, this.width - MARGIN * 2);
-        int left     = cx - contentW / 2;
-
-        acceptCheckbox = CheckboxWidget.builder(
-                        Text.literal("I have read and accept the above information."),
-                        this.textRenderer)
-                .pos(left, getCheckboxY())
-                .checked(accepted)
-                .callback((cb, v) -> {
-                    accepted = v;
-                    if (!accepted && relayEnabled) {
-                        relayEnabled = false;
-                        config.setRelayEnabled(false);
-                        config.save();
-                    }
+    protected void init(){
+        int cx=width/2, cw=Math.min(420,width-MARGIN*2), left=cx-cw/2;
+        acceptCheckbox=Checkbox.builder(Component.literal("I have read and accept the above information."),font)
+                .pos(left,getCheckboxY()).selected(accepted)
+                .onValueChange((_c,v)->{
+                    accepted=v;
+                    if(!accepted&&relayEnabled){relayEnabled=false;config.setRelayEnabled(false);config.save();}
                     updateToggleButton();
-                })
-                .build();
-        this.addDrawableChild(acceptCheckbox);
-
-        int btnY = this.height - 30;
-        int bW   = 100;
-
-        this.addDrawableChild(ButtonWidget.builder(Text.literal("Go Back"),
-                        button -> { if (this.client != null) this.client.setScreen(parent); })
-                .dimensions(cx - bW - 4, btnY, bW, 20).build());
-
-        toggleButton = ButtonWidget.builder(buildToggleLabel(relayEnabled), button -> {
-            relayEnabled = !relayEnabled;
-            config.setRelayEnabled(relayEnabled);
-            config.save();
-            button.setMessage(buildToggleLabel(relayEnabled));
-        }).dimensions(cx + 4, btnY, bW, 20).build();
-        this.addDrawableChild(toggleButton);
-        updateToggleButton();
-
-        checkStatusButton = ButtonWidget.builder(
-                Text.literal("Check Status"),
-                button -> pingRelay()
-        ).dimensions(cx - 50, btnY - 26, 100, 20).build();
-        this.addDrawableChild(checkStatusButton);
+                }).build();
+        this.addRenderableWidget(acceptCheckbox);
+        int bY=height-30, bW=100;
+        this.addRenderableWidget(Button.builder(Component.literal("Go Back"),_b->{if(minecraft!=null)minecraft.setScreen(parent);}).bounds(cx-bW-4,bY,bW,20).build());
+        toggleButton=Button.builder(toggleLabel(relayEnabled),_b->{
+            relayEnabled=!relayEnabled; config.setRelayEnabled(relayEnabled); config.save(); _b.setMessage(toggleLabel(relayEnabled));
+        }).bounds(cx+4,bY,bW,20).build();
+        this.addRenderableWidget(toggleButton); updateToggleButton();
+        checkStatusButton=Button.builder(Component.literal("Check Status"),_b->pingRelay()).bounds(cx-50,bY-26,100,20).build();
+        this.addRenderableWidget(checkStatusButton);
     }
 
-    private void pingRelay() {
-        if (checkingRelay) return;
-        checkingRelay = true;
-        relayOnline   = null;
-        pingMs        = -1;
-        checkStatusButton.active = false;
-        checkStatusButton.setMessage(Text.literal("Checking…"));
-
-        long startMs = System.currentTimeMillis();
-
-        CompletableFuture.runAsync(() -> {
-            try (HttpClient httpClient = HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofSeconds(5))
-                    .build()) {
-
-                WebSocket.Listener listener = new WebSocket.Listener() {
-                    @Override
-                    public void onOpen(WebSocket ws) {
-                        pingMs      = System.currentTimeMillis() - startMs;
-                        relayOnline = true;
-                        ws.sendClose(WebSocket.NORMAL_CLOSURE, "ping")
-                                .thenRun(() -> resetCheckButton());
-                    }
-
-                    @Override
-                    public CompletionStage<?> onClose(WebSocket ws, int code, String reason) {
-                        resetCheckButton();
-                        return WebSocket.Listener.super.onClose(ws, code, reason);
-                    }
-
-                    @Override
-                    public void onError(WebSocket ws, Throwable error) {
-                        relayOnline = false;
-                        pingMs      = -1;
-                        resetCheckButton();
-                    }
-                };
-
-                httpClient.newWebSocketBuilder()
-                        .connectTimeout(Duration.ofSeconds(5))
-                        .buildAsync(URI.create(RELAY_URL), listener)
-                        .exceptionally(e -> {
-                            relayOnline = false;
-                            pingMs      = -1;
-                            resetCheckButton();
-                            return null;
-                        })
-                        .join();
-
-            } catch (Exception e) {
-                relayOnline = false;
-                resetCheckButton();
-            }
+    private void pingRelay(){
+        if(checkingRelay)return; checkingRelay=true; relayOnline=null; pingMs=-1;
+        checkStatusButton.active=false; checkStatusButton.setMessage(Component.literal("Checking…"));
+        long start=System.currentTimeMillis();
+        CompletableFuture.runAsync(()->{
+            try(HttpClient hc=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()){
+                hc.newWebSocketBuilder().connectTimeout(Duration.ofSeconds(5)).buildAsync(URI.create(RELAY_URL),new WebSocket.Listener(){
+                    @Override public void onOpen(WebSocket ws){pingMs=System.currentTimeMillis()-start;relayOnline=true;ws.sendClose(WebSocket.NORMAL_CLOSURE,"ping").thenRun(()->resetBtn());}
+                    @Override public CompletionStage<?> onClose(WebSocket ws,int c,String r){resetBtn();return WebSocket.Listener.super.onClose(ws,c,r);}
+                    @Override public void onError(WebSocket ws,Throwable e){relayOnline=false;pingMs=-1;resetBtn();}
+                }).exceptionally(e->{relayOnline=false;pingMs=-1;resetBtn();return null;}).join();
+            }catch(Exception e){relayOnline=false;resetBtn();}
         });
     }
-
-    private void resetCheckButton() {
-        checkingRelay = false;
-        if (client != null) {
-            client.execute(() -> {
-                checkStatusButton.active = true;
-                checkStatusButton.setMessage(Text.literal("Check Status"));
-            });
-        }
-    }
-
-    private void updateToggleButton() {
-        toggleButton.active = accepted;
-        toggleButton.setMessage(buildToggleLabel(relayEnabled));
-    }
-
-    private Text buildToggleLabel(boolean on) {
-        return Text.literal("Relay: ")
-                .append(Text.literal(on ? "Enabled" : "Disabled")
-                        .styled(s -> s.withBold(true)
-                                .withFormatting(on ? Formatting.GREEN : Formatting.RED)));
-    }
+    private void resetBtn(){checkingRelay=false;if(minecraft!=null)minecraft.execute(()->{checkStatusButton.active=true;checkStatusButton.setMessage(Component.literal("Check Status"));});}
+    private void updateToggleButton(){toggleButton.active=accepted;toggleButton.setMessage(toggleLabel(relayEnabled));}
+    private Component toggleLabel(boolean on){return Component.literal("Relay: ").append(Component.literal(on?"Enabled":"Disabled").withStyle(s->s.withBold(true).withColor(on?ChatFormatting.GREEN:ChatFormatting.RED)));}
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        super.render(context, mouseX, mouseY, delta);
-
-        int cx       = this.width / 2;
-        int contentW = Math.min(420, this.width - MARGIN * 2);
-        int left     = cx - contentW / 2;
-        int y        = 12;
-
-        context.drawCenteredTextWithShadow(textRenderer,
-                Text.literal("Relay Settings").styled(s -> s.withBold(true)),
-                cx, y, 0xFFFFFFFF);
-        y += 14;
-
-        context.fill(left, y, left + contentW, y + 1, 0x44FFFFFF);
-        y += 10;
-
-        context.drawCenteredTextWithShadow(textRenderer,
-                Text.literal("Descriptive would like to connect to a external Server to sync custom names."),
-                cx, y, 0xFFCCCCCC);
-        y += LINE_H + 8;
-
-        context.drawTextWithShadow(textRenderer,
-                Text.literal("Benefits").styled(s -> s.withBold(true).withFormatting(Formatting.GREEN)),
-                left, y, 0xFFFFFFFF);
-        y += LINE_H + 2;
-        y = drawContentLines(context, left, y, BENEFITS);
-        y += 8;
-
-        context.drawTextWithShadow(textRenderer,
-                Text.literal("Important to know").styled(s -> s.withBold(true).withFormatting(Formatting.YELLOW)),
-                left, y, 0xFFFFFFFF);
-        y += LINE_H + 2;
-        y = drawContentLines(context, left, y, WARNINGS);
-        y += 10;
-
-        context.fill(left, y, left + contentW, y + 1, 0x33FFFFFF);
-
-        int statusY = this.height - 30 - 26 - 18;
-
-        if (checkingRelay) {
-            int dots = (int) ((System.currentTimeMillis() / 400) % 4);
-            String anim = "●".repeat(dots) + "○".repeat(3 - dots);
-            context.drawCenteredTextWithShadow(textRenderer,
-                    Text.literal("Pinging relay  " + anim)
-                            .styled(s -> s.withFormatting(Formatting.GRAY)),
-                    cx, statusY, 0xFFFFFFFF);
-
-        } else if (relayOnline == null) {
-            context.drawCenteredTextWithShadow(textRenderer,
-                    Text.literal("Check the relay's status. This will attempt to connect to a external websocket server.")
-                            .styled(s -> s.withFormatting(Formatting.GRAY).withItalic(true)),
-                    cx, statusY, 0xFFFFFFFF);
-
-        } else if (relayOnline) {
-            String pingLabel = pingMs >= 0 ? "  (" + pingMs + " ms)" : "";
-            context.drawCenteredTextWithShadow(textRenderer,
-                    Text.literal("● Relay Online" + pingLabel)
-                            .styled(s -> s.withBold(true).withFormatting(Formatting.GREEN)),
-                    cx, statusY, 0xFFFFFFFF);
-
+    public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float dt){
+        super.extractRenderState(g,mx,my,dt);
+        int cx=width/2, cw=Math.min(420,width-MARGIN*2), left=cx-cw/2, y=12;
+        g.centeredText(font,Component.literal("Relay Settings").withStyle(s->s.withBold(true)),cx,y,0xFFFFFFFF); y+=14;
+        g.fill(left,y,left+cw,y+1,0x44FFFFFF); y+=10;
+        g.centeredText(font,Component.literal("Descriptive would like to connect to a external Server to sync custom names."),cx,y,0xFFCCCCCC); y+=LINE_H+8;
+        g.text(font,Component.literal("Benefits").withStyle(s->s.withBold(true).withColor(ChatFormatting.GREEN)),left,y,0xFFFFFFFF); y+=LINE_H+2;
+        y=drawLines(g,left,y,BENEFITS); y+=8;
+        g.text(font,Component.literal("Important to know").withStyle(s->s.withBold(true).withColor(ChatFormatting.YELLOW)),left,y,0xFFFFFFFF); y+=LINE_H+2;
+        y=drawLines(g,left,y,WARNINGS); y+=10;
+        g.fill(left,y,left+cw,y+1,0x33FFFFFF);
+        int sY=height-30-26-18;
+        if(checkingRelay){
+            int dots=(int)((System.currentTimeMillis()/400)%4);
+            g.centeredText(font,Component.literal("Pinging relay  "+"●".repeat(dots)+"○".repeat(3-dots)).withStyle(s->s.withColor(ChatFormatting.GRAY)),cx,sY,0xFFFFFFFF);
+        } else if(relayOnline==null){
+            g.centeredText(font,Component.literal("Check the relay's status.").withStyle(s->s.withColor(ChatFormatting.GRAY).withItalic(true)),cx,sY,0xFFFFFFFF);
+        } else if(relayOnline){
+            g.centeredText(font,Component.literal("● Relay Online"+(pingMs>=0?"  ("+pingMs+" ms)":"")).withStyle(s->s.withBold(true).withColor(ChatFormatting.GREEN)),cx,sY,0xFFFFFFFF);
         } else {
-            context.drawCenteredTextWithShadow(textRenderer,
-                    Text.literal("● Relay Offline or unreachable")
-                            .styled(s -> s.withBold(true).withFormatting(Formatting.RED)),
-                    cx, statusY, 0xFFFFFFFF);
+            g.centeredText(font,Component.literal("● Relay Offline or unreachable").withStyle(s->s.withBold(true).withColor(ChatFormatting.RED)),cx,sY,0xFFFFFFFF);
         }
     }
 
-    private int drawContentLines(DrawContext context, int left, int y, ContentLine[] lines) {
-        for (ContentLine line : lines) {
-            if (line.icon() != null) {
-                context.drawTextWithShadow(textRenderer,
-                        Text.literal(line.icon()), left, y, line.iconColor());
-            }
-            context.drawTextWithShadow(textRenderer,
-                    Text.literal(line.text()), left + TEXT_INDENT, y, 0xFFCCCCCC);
-            y += LINE_H;
-        }
-        return y;
+    private int drawLines(GuiGraphicsExtractor g,int left,int y,ContentLine[] lines){
+        for(ContentLine l:lines){if(l.icon()!=null)g.text(font,Component.literal(l.icon()),left,y,l.iconColor());g.text(font,Component.literal(l.text()),left+TEXT_INDENT,y,0xFFCCCCCC);y+=LINE_H;}return y;
     }
-
-    private int getCheckboxY() {
-        int y = 12 + 14 + 10;
-        y += LINE_H + 8;
-        y += LINE_H + 2 + BENEFITS.length * LINE_H + 8;
-        y += LINE_H + 2 + WARNINGS.length * LINE_H + 10;
-        y += 1 + 8;
-        return y;
-    }
-
-    @Override
-    public void close() {
-        if (this.client != null) this.client.setScreen(parent);
-    }
+    private int getCheckboxY(){int y=12+14+10+LINE_H+8;y+=LINE_H+2+BENEFITS.length*LINE_H+8;y+=LINE_H+2+WARNINGS.length*LINE_H+10;y+=1+8;return y;}
+    @Override public void onClose(){if(minecraft!=null)minecraft.setScreen(parent);}
 }

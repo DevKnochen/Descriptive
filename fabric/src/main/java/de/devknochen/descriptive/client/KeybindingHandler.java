@@ -18,31 +18,33 @@ package de.devknochen.descriptive.client;
 
 import de.devknochen.descriptive.client.gui.DescriptiveConfigScreen;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+import net.minecraft.client.KeyMapping;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 public class KeybindingHandler {
 
-    private static KeyBinding configKeyBinding;
-    public static final KeyBinding.Category DESCRIPTIVE_CATEGORY = KeyBinding.Category.create(net.minecraft.util.Identifier.of("descriptive", "descriptive"));
+    private static KeyMapping configKeyBinding;
+    private static final KeyMapping.Category DESCRIPTIVE_CATEGORY = KeyMapping.Category.register(
+            Identifier.parse("descriptive:key_category")
+    );
 
     public static void register() {
-        configKeyBinding = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        configKeyBinding = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.descriptive.config",
-                InputUtil.Type.KEYSYM,
+                InputConstants.Type.KEYSYM,
                 GLFW.GLFW_KEY_U,
                 DESCRIPTIVE_CATEGORY
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            while (configKeyBinding.wasPressed()) {
-                if (client.currentScreen == null) {
+            while (configKeyBinding.consumeClick()) {
+                if (client.screen == null) {
                     client.setScreen(new DescriptiveConfigScreen(null));
                 }
             }
         });
-
     }
 }

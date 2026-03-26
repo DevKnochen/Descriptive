@@ -19,44 +19,44 @@ package de.devknochen.descriptive.client.mixin;
 import de.devknochen.descriptive.client.animation.PlayerAnimationContext;
 import de.devknochen.descriptive.common.util.NameBuilder;
 import de.devknochen.descriptive.common.util.TextReplacer;
-import net.minecraft.advancement.AdvancementDisplay;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
+import net.minecraft.advancements.DisplayInfo;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(AdvancementDisplay.class)
+@Mixin(DisplayInfo.class)
 public class AdvancementToastMixin {
 
     @Inject(method = "getTitle", at = @At("RETURN"), cancellable = true)
-    private void descriptive$modifyTitle(CallbackInfoReturnable<Text> cir) {
+    private void descriptive$modifyTitle(CallbackInfoReturnable<Component> cir) {
         descriptive$replaceNames(cir);
     }
 
     @Inject(method = "getDescription", at = @At("RETURN"), cancellable = true)
-    private void descriptive$modifyDescription(CallbackInfoReturnable<Text> cir) {
+    private void descriptive$modifyDescription(CallbackInfoReturnable<Component> cir) {
         descriptive$replaceNames(cir);
     }
 
     @Unique
-    private void descriptive$replaceNames(CallbackInfoReturnable<Text> cir) {
-        Text text = cir.getReturnValue();
+    private void descriptive$replaceNames(CallbackInfoReturnable<Component> cir) {
+        Component text = cir.getReturnValue();
         if (text == null) return;
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client == null || client.world == null) return;
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || client.level == null) return;
 
         try {
             String str = text.getString();
-            Text result = text;
-            for (var player : client.world.getPlayers()) {
+            Component result = text;
+            for (var player : client.level.players()) {
                 String name = player.getName().getString();
                 if (str.contains(name)) {
-                    PlayerAnimationContext.setCurrentPlayer(player.getUuid());
+                    PlayerAnimationContext.setCurrentPlayer(player.getUUID());
                     result = TextReplacer.replaceText(result, name,
-                            NameBuilder.buildCustomName(player.getUuid(), name));
+                            NameBuilder.buildCustomName(player.getUUID(), name));
                 }
             }
             if (result != text) cir.setReturnValue(result);

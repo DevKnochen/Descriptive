@@ -5,16 +5,13 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
- * Portions of this file are copied from, derived from, or inspired from TextAnimator by Snownee.
- * Copyright 2023 Snownee. Licensed under the Apache License, Version 2.0
  */
 
 package de.devknochen.descriptive.client.animation;
@@ -23,8 +20,8 @@ import de.devknochen.descriptive.client.DescriptiveClient;
 import de.devknochen.descriptive.client.network.CustomNameCache;
 import de.devknochen.descriptive.common.network.packet.CustomNameData;
 import de.devknochen.descriptive.config.DescriptiveClientConfig;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
 
 import java.util.List;
 import java.util.Random;
@@ -34,14 +31,10 @@ public class AnimationRenderer {
 
     private static final ThreadLocal<Integer> CHAR_INDEX = ThreadLocal.withInitial(() -> 0);
 
-    public static void resetCharIndex() {
-        CHAR_INDEX.set(0);
-    }
+    public static void resetCharIndex() { CHAR_INDEX.set(0); }
 
     @SuppressWarnings("unused")
-    public static int getCurrentCharIndex() {
-        return CHAR_INDEX.get();
-    }
+    public static int getCurrentCharIndex() { return CHAR_INDEX.get(); }
 
     public static int getAndIncrementCharIndex() {
         int current = CHAR_INDEX.get();
@@ -50,217 +43,130 @@ public class AnimationRenderer {
     }
 
     public static void applyEffects(EffectSettings settings, UUID playerUuid) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player == null || client.world == null) return;
+        Minecraft client = Minecraft.getInstance();
+        if (client.player == null || client.level == null) return;
 
         List<String> activeAnimations;
         float speed;
         int baseColor;
         List<Integer> gradientColors;
 
-        if (client.player.getUuid().equals(playerUuid)) {
+        if (client.player.getUUID().equals(playerUuid)) {
             DescriptiveClientConfig config = DescriptiveClient.getInstance().getConfig();
             activeAnimations = config.getAnimationTypes();
-            speed = config.getAnimationSpeed();
-            baseColor = config.getColor();
-            gradientColors = config.getGradientColors();
+            speed            = config.getAnimationSpeed();
+            baseColor        = config.getColor();
+            gradientColors   = config.getGradientColors();
         } else {
             CustomNameData data = CustomNameCache.get(playerUuid);
             if (data == null || !data.animationEnabled()) return;
             activeAnimations = data.animationTypes();
-            speed = data.animationSpeed();
-            baseColor = data.color();
-            gradientColors = data.gradientColors();
+            speed            = data.animationSpeed();
+            baseColor        = data.color();
+            gradientColors   = data.gradientColors();
         }
 
         if (activeAnimations.isEmpty()) return;
 
         int effectiveBase = baseColor;
-        if (activeAnimations.contains("gradient") && !gradientColors.isEmpty()) {
+        if (activeAnimations.contains("gradient") && !gradientColors.isEmpty())
             effectiveBase = gradientColors.getFirst();
-        }
+
         settings.r = ((effectiveBase >> 16) & 0xFF) / 255.0f;
-        settings.g = ((effectiveBase >> 8)  & 0xFF) / 255.0f;
-        settings.b = (effectiveBase & 0xFF)          / 255.0f;
+        settings.g = ((effectiveBase >>  8) & 0xFF) / 255.0f;
+        settings.b = ( effectiveBase        & 0xFF) / 255.0f;
 
-        long rawMillis = client.world.getTime() * 50L
-                + (long)(client.getRenderTickCounter().getTickProgress(false) * 50f);
+        long rawMillis = client.level.getGameTime() * 50L
+                + (long)(client.getDeltaTracker().getGameTimeDeltaPartialTick(false) * 50f);
         long millis = rawMillis % 100000L;
-        float time = millis * 0.001f * speed;
+        float time  = millis * 0.001f * speed;
 
-        for (String animType : activeAnimations) {
+        for (String animType : activeAnimations)
             applyAnimation(settings, animType, time, millis, gradientColors);
-        }
     }
 
     private static void applyAnimation(EffectSettings settings, String animType,
                                        float time, long millis, List<Integer> gradientColors) {
         switch (animType) {
-            case "shake"    -> applyShake(settings, millis);
+            case "shake"    -> applyShake(settings, time);
             case "wave"     -> applyWave(settings, time);
             case "rainbow"  -> applyRainbow(settings, millis);
             case "wiggle"   -> applyWiggle(settings, time);
             case "pulse"    -> applyPulse(settings, time);
             case "bounce"   -> applyBounce(settings, time);
-            case "swing"    -> applySwing(settings, millis);
+            case "swing"    -> applySwing(settings, time);
             case "fade"     -> applyFade(settings, millis);
-            case "pend"     -> applyPendulum(settings, millis);
+            case "pend"     -> applyPendulum(settings, time);
             case "turb"     -> applyTurbulence(settings, time);
             case "glitch"   -> applyGlitch(settings, millis);
             case "gradient" -> applyGradient(settings, gradientColors);
         }
     }
 
-    private static void applyShake(EffectSettings settings, long millis) {
-        float t = millis * 0.01f;
-        int seed = settings.index;
-        Random dirRandom = new Random(seed);
-        float dirX = dirRandom.nextFloat();
-        float dirY = dirRandom.nextFloat();
-        settings.offsetX += MathHelper.sin(t * 1.7f + seed) * 0.6f * dirX;
-        settings.offsetY += MathHelper.sin(t * 2.3f + seed) * 0.6f * dirY;
+    private static void applyShake(EffectSettings s, float time) {
+        int tick = Mth.floor(time * 22.0f + s.index * 0.37f);
+        Random random = new Random(0x9E3779B97F4A7C15L + (long) s.index * 31L + tick * 17L);
+        float amplitude = 1.6f;
+        s.offsetX += (random.nextFloat() - 0.5f) * amplitude;
+        s.offsetY += (random.nextFloat() - 0.5f) * amplitude;
     }
-
-    private static void applyWave(EffectSettings settings, float time) {
-        settings.offsetY += MathHelper.sin((time * 2.0f) + (settings.index * 0.5f)) * 2.0f;
+    private static void applyWave(EffectSettings s, float t) { s.offsetY += Mth.sin((t*2f)+(s.index*0.5f))*2f; }
+    private static void applyRainbow(EffectSettings s, long millis) {
+        float hue = ((millis*0.02f)+(s.index*1f))%30f;
+        int c = Mth.hsvToRgb(hue/30f,0.8f,0.8f);
+        s.r=((c>>16)&0xFF)/255f; s.g=((c>>8)&0xFF)/255f; s.b=(c&0xFF)/255f;
     }
-
-    private static void applyRainbow(EffectSettings settings, long millis) {
-        float hue = ((millis * 0.02f) + (settings.index * 1.0f)) % 30f;
-        int color = MathHelper.hsvToRgb(hue / 30f, 0.8f, 0.8f);
-        settings.r = ((color >> 16) & 0xFF) / 255.0f;
-        settings.g = ((color >> 8)  & 0xFF) / 255.0f;
-        settings.b = (color & 0xFF)          / 255.0f;
+    private static void applyWiggle(EffectSettings s, float t) {
+        float phase = s.index * 0.55f;
+        float direction = (float) Math.toRadians((s.index * 137.5f) % 360.0f);
+        float distance = Mth.sin(t * 6.0f + phase) * 1.35f;
+        s.offsetX += Mth.cos(direction) * distance;
+        s.offsetY += Mth.sin(direction) * distance;
     }
-
-    private static void applyWiggle(EffectSettings settings, float time) {
-        float phase = settings.index * 2.0f;
-        float rad   = (float) Math.toRadians(settings.index * 137.5f);
-        float dist  = MathHelper.sin((time * 2.0f) + phase) * 1.5f;
-        settings.offsetX += MathHelper.cos(rad) * dist;
-        settings.offsetY += MathHelper.sin(rad) * dist;
+    private static void applyPulse(EffectSettings s, float t) { float k=0.6f+0.4f*(0.5f+0.5f*Mth.sin(t*2f)); s.r*=k; s.g*=k; s.b*=k; }
+    private static void applyBounce(EffectSettings s, float time) {
+        float t=((time-s.index*0.2f)%1f); if(t<0)t+=1f;
+        float off=0;
+        if(t<0.2f){off=Mth.sin((t/0.2f)*(float)(Math.PI/2));}
+        else if(t<0.8f){float bt=(t-0.2f)/0.6f;if(bt<1f/2.75f){off=7.5625f*bt*bt;}else if(bt<2f/2.75f){bt-=1.5f/2.75f;off=7.5625f*bt*bt+0.75f;}else if(bt<2.5f/2.75f){bt-=2.25f/2.75f;off=7.5625f*bt*bt+0.9375f;}else{bt-=2.625f/2.75f;off=7.5625f*bt*bt+0.984375f;}off=1-off;}
+        s.offsetY-=off*4f;
     }
-
-    private static void applyPulse(EffectSettings settings, float time) {
-        float k = 0.6f + 0.4f * (0.5f + 0.5f * MathHelper.sin(time * 2.0f));
-        settings.r *= k;
-        settings.g *= k;
-        settings.b *= k;
+    private static void applySwing(EffectSettings s, float time) {
+        float angle = Mth.sin(time * ((float) Math.PI * 2.0f) * 0.2f) * 0.85f;
+        s.rotationRadians += angle;
+        s.pivotXFactor = 0.5f;
+        s.pivotYFactor = 0.5f;
     }
-
-    private static void applyBounce(EffectSettings settings, float time) {
-        float t = ((time - settings.index * 0.2f) % 1.0f);
-        if (t < 0) t += 1.0f;
-
-        float offset = 0;
-        if (t < 0.2f) {
-            offset = MathHelper.sin((t / 0.2f) * (float)(Math.PI / 2));
-        } else if (t < 0.8f) {
-            float bt = (t - 0.2f) / 0.6f;
-            if (bt < 1f / 2.75f) {
-                offset = 7.5625f * bt * bt;
-            } else if (bt < 2f / 2.75f) {
-                bt -= 1.5f / 2.75f;
-                offset = 7.5625f * bt * bt + 0.75f;
-            } else if (bt < 2.5f / 2.75f) {
-                bt -= 2.25f / 2.75f;
-                offset = 7.5625f * bt * bt + 0.9375f;
-            } else {
-                bt -= 2.625f / 2.75f;
-                offset = 7.5625f * bt * bt + 0.984375f;
-            }
-            offset = 1 - offset;
-        }
-        settings.offsetY -= offset * 4.0f;
+    private static void applyFade(EffectSettings s, long millis) { float k=0.1f+(0.9f*(0.5f+0.5f*Mth.sin(millis*0.002f+s.index*0.4f))); s.r*=k; s.g*=k; s.b*=k; }
+    private static void applyPendulum(EffectSettings s, float time) {
+        float angle = Mth.sin(time * ((float) Math.PI * 2.0f) * 0.3f) * ((float) Math.toRadians(30.0));
+        s.rotationRadians += angle;
+        s.pivotXFactor = 0.0f;
+        s.pivotYFactor = 0.0f;
     }
-
-    // Ported from Snownee's SwingEffect
-    private static void applySwing(EffectSettings settings, long millis) {
-        float t = millis * 0.003f + settings.index * 0.4f;
-        settings.offsetX += MathHelper.sin(t) * 2.0f;
+    private static void applyTurbulence(EffectSettings s, float time) { float t=time*2f; s.offsetX+=Mth.sin(t*1.7f+s.index*0.31f)*1.5f; s.offsetY+=Mth.sin(t*2.3f+s.index*0.27f)*1.5f; }
+    private static void applyGlitch(EffectSettings s, long millis) {
+        double time=millis*0.025; int pulse=(int)time%3;
+        Random r=new Random(s.index+(long)(time*1000)); r.nextFloat();
+        if(pulse==1&&r.nextFloat()<0.015f){s.offsetX+=(r.nextFloat()-0.5f)*8;s.offsetY+=(r.nextFloat()-0.5f)*4;}
+        if(r.nextFloat()<0.003f){float b=r.nextFloat()<0.3f?0f:0.3f;s.r*=b;s.g*=b;s.b*=b;}
+        Random r2=new Random((long)(time*2)*1000L*12345L);
+        if(r2.nextFloat()<0.08f){float off=0.75f+r2.nextFloat()*0.75f;if(r2.nextBoolean())off=-off;s.offsetX+=off;if(r2.nextBoolean())s.r=Math.min(1f,s.r+0.5f);else s.b=Math.min(1f,s.b+0.5f);}
     }
-
-    // Ported from Snownee's FadeEffect
-    private static void applyFade(EffectSettings settings, long millis) {
-        float t    = millis * 0.002f + settings.index * 0.4f;
-        float minK = 0.1f;
-        float k    = minK + (1f - minK) * (0.5f + 0.5f * MathHelper.sin(t));
-        settings.r *= k;
-        settings.g *= k;
-        settings.b *= k;
+    private static void applyGradient(EffectSettings s, List<Integer> gc) {
+        if(gc==null||gc.size()<2)return;
+        float t=Math.min(s.index/16f,1f); int c1=gc.get(0),c2=gc.get(1);
+        int r1=(c1>>16)&0xFF,g1=(c1>>8)&0xFF,b1=c1&0xFF,r2=(c2>>16)&0xFF,g2=(c2>>8)&0xFF,b2=c2&0xFF;
+        s.r=(r1+(r2-r1)*t)/255f; s.g=(g1+(g2-g1)*t)/255f; s.b=(b1+(b2-b1)*t)/255f;
     }
-
-    private static void applyPendulum(EffectSettings settings, long millis) {
-        double phase  = millis * 0.002 - settings.index * 0.1;
-        float  swing  = (float) Math.sin(phase);
-        settings.offsetX += swing * 3.0f;
-        settings.offsetY += (float)(Math.sin(phase * 0.5) * 0.8f);
-    }
-
-    private static void applyTurbulence(EffectSettings settings, float time) {
-        float t = time * 2.0f;
-        settings.offsetX += MathHelper.sin(t * 1.7f + settings.index * 0.31f) * 1.5f;
-        settings.offsetY += MathHelper.sin(t * 2.3f + settings.index * 0.27f) * 1.5f;
-    }
-
-    // Ported from Snownee's GlitchEffect (without siblings/mask which require pipeline changes)
-    private static void applyGlitch(EffectSettings settings, long millis) {
-        double time  = millis * 0.025;
-        int    pulse = (int) time % 3;
-
-        Random random = new Random(settings.index + (long)(time * 1000));
-        random.nextFloat();
-
-        if (pulse == 1 && random.nextFloat() < 0.015f) {
-            settings.offsetX += (random.nextFloat() - 0.5f) * 8;
-            settings.offsetY += (random.nextFloat() - 0.5f) * 4;
-        }
-
-        if (random.nextFloat() < 0.003f) {
-            float blink = random.nextFloat() < 0.3f ? 0.0f : 0.3f;
-            settings.r *= blink;
-            settings.g *= blink;
-            settings.b *= blink;
-        }
-
-        double time2   = time * 2;
-        Random random2 = new Random((long)(time2) * 1000L * 12345L);
-        if (random2.nextFloat() < 0.08f) {
-            float offset = 0.75f + random2.nextFloat() * 0.75f;
-            if (random2.nextBoolean()) offset = -offset;
-            settings.offsetX += offset;
-            if (random2.nextBoolean()) settings.r = Math.min(1f, settings.r + 0.5f);
-            else                       settings.b = Math.min(1f, settings.b + 0.5f);
-        }
-    }
-
-    private static void applyGradient(EffectSettings settings, List<Integer> gradientColors) {
-        if (gradientColors == null || gradientColors.size() < 2) return;
-
-        float t  = Math.min(settings.index / 16.0f, 1.0f);
-        int   c1 = gradientColors.get(0);
-        int   c2 = gradientColors.get(1);
-
-        int r1 = (c1 >> 16) & 0xFF, g1 = (c1 >> 8) & 0xFF, b1 = c1 & 0xFF;
-        int r2 = (c2 >> 16) & 0xFF, g2 = (c2 >> 8) & 0xFF, b2 = c2 & 0xFF;
-
-        settings.r = (r1 + (r2 - r1) * t) / 255.0f;
-        settings.g = (g1 + (g2 - g1) * t) / 255.0f;
-        settings.b = (b1 + (b2 - b1) * t) / 255.0f;
-    }
-
 
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public static boolean shouldAnimate(UUID playerUuid) {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client.player == null) return false;
-
-        if (client.player.getUuid().equals(playerUuid)) {
-            DescriptiveClientConfig cfg = DescriptiveClient.getInstance().getConfig();
-            return cfg.isAnimationEnabled();
-        } else {
-            CustomNameData data = CustomNameCache.get(playerUuid);
-            return data != null && data.animationEnabled() && !data.animationTypes().isEmpty();
-        }
+        if (client.player.getUUID().equals(playerUuid))
+            return DescriptiveClient.getInstance().getConfig().isAnimationEnabled();
+        CustomNameData data = CustomNameCache.get(playerUuid);
+        return data != null && data.animationEnabled() && !data.animationTypes().isEmpty();
     }
 }

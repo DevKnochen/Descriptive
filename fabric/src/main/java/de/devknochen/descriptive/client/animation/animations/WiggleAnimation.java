@@ -30,6 +30,6 @@ public class WiggleAnimation implements Animation {
 
     @Override
     public String getDescription() {
-        return "Wiggling motion";
+        return "Fixed-direction per-character wiggle";
     }
 }

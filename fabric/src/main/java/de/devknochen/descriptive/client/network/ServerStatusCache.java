@@ -17,17 +17,13 @@
 package de.devknochen.descriptive.client.network;
 
 public class ServerStatusCache {
-
     private static boolean serverAllowsDescriptive = true;
-
     public static boolean isServerAllowsDescriptive() {
         return serverAllowsDescriptive;
     }
-
     public static void setServerAllowsDescriptive(boolean allowed) {
         serverAllowsDescriptive = allowed;
     }
-
     public static void reset() {
         serverAllowsDescriptive = true;
     }

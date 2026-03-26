@@ -19,9 +19,9 @@ package de.devknochen.descriptive.client.mixin;
 import de.devknochen.descriptive.client.animation.PlayerAnimationContext;
 import de.devknochen.descriptive.common.util.NameBuilder;
 import de.devknochen.descriptive.common.util.TextReplacer;
-import net.minecraft.block.entity.SignText;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.block.entity.SignText;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -31,25 +31,25 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class SignBlockEntityRendererMixin {
 
     @Inject(method = "getMessages", at = @At("RETURN"), cancellable = true)
-    private void descriptive$modifySignLines(boolean filtered, CallbackInfoReturnable<Text[]> cir) {
-        Text[] original = cir.getReturnValue();
+    private void descriptive$modifySignLines(boolean filtered, CallbackInfoReturnable<Component[]> cir) {
+        Component[] original = cir.getReturnValue();
         if (original == null) return;
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client == null || client.world == null) return;
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || client.level == null) return;
 
-        Text[] result = original.clone();
+        Component[] result = original.clone();
         boolean modified = false;
         try {
             for (int i = 0; i < result.length; i++) {
-                Text line = result[i];
+                Component line = result[i];
                 if (line == null) continue;
                 String lineStr = line.getString();
-                for (var player : client.world.getPlayers()) {
+                for (var player : client.level.players()) {
                     String name = player.getName().getString();
                     if (lineStr.contains(name)) {
-                        PlayerAnimationContext.setCurrentPlayer(player.getUuid());
+                        PlayerAnimationContext.setCurrentPlayer(player.getUUID());
                         result[i] = TextReplacer.replaceText(line, name,
-                                NameBuilder.buildCustomName(player.getUuid(), name));
+                                NameBuilder.buildCustomName(player.getUUID(), name));
                         modified = true;
                     }
                 }

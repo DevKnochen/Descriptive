@@ -19,17 +19,14 @@ package de.devknochen.descriptive.client.animation.animations;
 import de.devknochen.descriptive.client.animation.Animation;
 
 public class SwingAnimation implements Animation {
-
     @Override
     public int getColor(int charIndex, int totalChars, float time, int baseColor, java.util.List<Integer> gradientColors) {
         return baseColor;
     }
-
     @Override
     public String getName() { return "Swing"; }
-
     @Override
     public String getDescription() {
-        return "Swinging motion";
+        return "Centered left-right rotation";
     }
 }

@@ -19,17 +19,14 @@ package de.devknochen.descriptive.client.animation.animations;
 import de.devknochen.descriptive.client.animation.Animation;
 
 public class PendulumAnimation implements Animation {
-
     @Override
     public int getColor(int charIndex, int totalChars, float time, int baseColor, java.util.List<Integer> gradientColors) {
         return baseColor;
     }
-
     @Override
     public String getName() { return "Pendulum"; }
-
     @Override
     public String getDescription() {
-        return "Swinging pendulum";
+        return "Pendulum swing with a small orbit";
     }
 }

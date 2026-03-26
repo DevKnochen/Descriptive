@@ -16,7 +16,8 @@
 
 package de.devknochen.descriptive.client.animation;
 
-import net.minecraft.text.Style;
+import net.minecraft.network.chat.Style;
+
 import java.util.UUID;
 
 public class AnimatedStyleMarker {

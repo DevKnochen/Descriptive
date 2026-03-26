@@ -19,9 +19,9 @@ package de.devknochen.descriptive.client.mixin;
 import de.devknochen.descriptive.client.animation.PlayerAnimationContext;
 import de.devknochen.descriptive.client.network.CustomNameCache;
 import de.devknochen.descriptive.common.util.NameBuilder;
-import net.minecraft.client.render.entity.PlayerEntityRenderer;
-import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
-import net.minecraft.entity.PlayerLikeEntity;
+import net.minecraft.client.renderer.entity.player.AvatarRenderer;
+import net.minecraft.client.renderer.entity.state.AvatarRenderState;
+import net.minecraft.world.entity.Avatar;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -29,23 +29,23 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.UUID;
 
-@Mixin(PlayerEntityRenderer.class)
+@Mixin(AvatarRenderer.class)
 public class PlayerEntityRendererMixin {
     @Inject(
-            method = "updateRenderState(Lnet/minecraft/entity/PlayerLikeEntity;Lnet/minecraft/client/render/entity/state/PlayerEntityRenderState;F)V",
+            method = "extractRenderState(Lnet/minecraft/world/entity/Avatar;Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;F)V",
             at = @At("RETURN")
     )
-    private void afterUpdateRenderState(PlayerLikeEntity player,
-                                        PlayerEntityRenderState state,
+    private void afterUpdateRenderState(Avatar player,
+                                        AvatarRenderState state,
                                         float tickDelta,
                                         CallbackInfo ci) {
-        if (state.displayName == null) return;
+        if (state.nameTag == null) return;
         try {
-            UUID playerUuid = player.getUuid();
+            UUID playerUuid = player.getUUID();
             String playerName = player.getName().getString();
             if (!CustomNameCache.has(playerUuid)) return;
             PlayerAnimationContext.setCurrentPlayer(playerUuid);
-            state.displayName = NameBuilder.buildCustomName(playerUuid, playerName);
+            state.nameTag = NameBuilder.buildCustomName(playerUuid, playerName);
         } catch (Exception ignored) {
             PlayerAnimationContext.clear();
         }

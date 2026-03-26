@@ -17,61 +17,54 @@
 package de.devknochen.descriptive.common.util;
 
 import de.devknochen.descriptive.client.animation.AnimatedStyleMarker;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.PlainTextContent;
-import net.minecraft.text.Style;
-import net.minecraft.text.Text;
-import net.minecraft.text.TextContent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentContents;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.contents.PlainTextContents;
 
 public class TextReplacer {
 
-    public static Text replaceText(Text original, String target, Text replacement) {
+    public static Component replaceText(Component original, String target, Component replacement) {
         if (original == null || target == null || target.isEmpty()) return original;
+        if (!original.getString().contains(target)) return original;
 
-        String fullString = original.getString();
-        if (!fullString.contains(target)) return original;
+        ComponentContents content = original.getContents();
 
-        TextContent content = original.getContent();
-
-        if (content instanceof PlainTextContent plainContent) {
-            String text = plainContent.string();
+        if (content instanceof PlainTextContents plainContent) {
+            String text = plainContent.text();
             if (text.contains(target)) {
-                MutableText result = replaceInString(text, target, replacement, original.getStyle());
-                for (Text sibling : original.getSiblings()) {
+                MutableComponent result = replaceInString(text, target, replacement, original.getStyle());
+                for (Component sibling : original.getSiblings())
                     result.append(replaceText(sibling, target, replacement));
-                }
                 return result;
             }
         }
 
         if (!original.getSiblings().isEmpty()) {
-            MutableText result = MutableText.of(content).setStyle(original.getStyle());
-            for (Text sibling : original.getSiblings()) {
+            MutableComponent result = MutableComponent.create(content).setStyle(original.getStyle());
+            for (Component sibling : original.getSiblings())
                 result.append(replaceText(sibling, target, replacement));
-            }
             return result;
         }
 
-        if (original.getString().contains(target)) {
+        if (original.getString().contains(target))
             return replaceInString(original.getString(), target, replacement, original.getStyle());
-        }
 
-        MutableText result = MutableText.of(content).setStyle(original.getStyle());
-        for (Text sibling : original.getSiblings()) result.append(sibling);
+        MutableComponent result = MutableComponent.create(content).setStyle(original.getStyle());
+        for (Component sibling : original.getSiblings()) result.append(sibling);
         return result;
     }
 
-    private static MutableText replaceInString(String text, String target, Text replacement, Style surroundingStyle) {
-        MutableText result = Text.empty();
-        int lastIndex = 0;
-        int index;
+    private static MutableComponent replaceInString(String text, String target, Component replacement, Style surroundingStyle) {
+        MutableComponent result = Component.empty();
+        int lastIndex = 0, index;
 
         while ((index = text.indexOf(target, lastIndex)) != -1) {
-            if (index > lastIndex) {
-                result.append(Text.literal(text.substring(lastIndex, index)).setStyle(Style.EMPTY));
-            }
+            if (index > lastIndex)
+                result.append(Component.literal(text.substring(lastIndex, index)).setStyle(Style.EMPTY));
 
-            MutableText replacementCopy = replacement.copy();
+            MutableComponent replacementCopy = replacement.copy();
             Style replacementStyle = replacementCopy.getStyle();
             Style mergedStyle = replacementStyle;
 
@@ -90,9 +83,8 @@ public class TextReplacer {
             lastIndex = index + target.length();
         }
 
-        if (lastIndex < text.length()) {
-            result.append(Text.literal(text.substring(lastIndex)).setStyle(Style.EMPTY));
-        }
+        if (lastIndex < text.length())
+            result.append(Component.literal(text.substring(lastIndex)).setStyle(Style.EMPTY));
 
         return result;
     }

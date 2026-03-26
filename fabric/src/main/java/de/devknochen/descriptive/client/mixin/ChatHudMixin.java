@@ -22,13 +22,13 @@ import de.devknochen.descriptive.client.network.CustomNameCache;
 import de.devknochen.descriptive.common.network.packet.CustomNameData;
 import de.devknochen.descriptive.common.util.NameBuilder;
 import de.devknochen.descriptive.common.util.TextReplacer;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.hud.ChatHud;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.text.TextContent;
-import net.minecraft.text.TranslatableTextContent;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.ChatComponent;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentContents;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -39,18 +39,18 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import java.util.Map;
 import java.util.UUID;
 
-@Mixin(ChatHud.class)
+@Mixin(ChatComponent.class)
 public class ChatHudMixin {
 
-    @Shadow @Final MinecraftClient client;
+    @Shadow @Final Minecraft minecraft;
 
     @ModifyVariable(
-            method = "addMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/gui/hud/MessageIndicator;)V",
+            method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageSource;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
             at = @At("HEAD"),
             argsOnly = true
     )
-    private Text modifyMessage(Text message) {
-        if (client.world == null || message == null) return message;
+    private Component modifyMessage(Component message) {
+        if (minecraft.level == null || message == null) return message;
         try {
             return descriptive$processMessage(message);
         } catch (Exception e) {
@@ -61,18 +61,18 @@ public class ChatHudMixin {
     }
 
     @Unique
-    private Text descriptive$processMessage(Text text) {
+    private Component descriptive$processMessage(Component text) {
         if (text == null) return null;
-        TextContent content = text.getContent();
-        if (content instanceof TranslatableTextContent translatableContent) {
+        ComponentContents content = text.getContents();
+        if (content instanceof TranslatableContents translatableContent) {
             return descriptive$processTranslatableText(text, translatableContent);
         }
         return descriptive$processRegularText(text);
     }
 
     @Unique
-    private Text descriptive$processTranslatableText(Text original, TranslatableTextContent translatable) {
-        if (client.world == null) return original;
+    private Component descriptive$processTranslatableText(Component original, TranslatableContents translatable) {
+        if (minecraft.level == null) return original;
 
         Object[] args = translatable.getArgs();
         Object[] newArgs = new Object[args.length];
@@ -80,9 +80,9 @@ public class ChatHudMixin {
 
         for (int i = 0; i < args.length; i++) {
             Object arg = args[i];
-            if (arg instanceof Text argText) {
+            if (arg instanceof Component argText) {
                 String argString = argText.getString();
-                Text processedArg = descriptive$resolveNameFromAnySource(argString, argText);
+                Component processedArg = descriptive$resolveNameFromAnySource(argString, argText);
                 if (processedArg != argText) modified = true;
                 newArgs[i] = processedArg;
             } else {
@@ -91,17 +91,17 @@ public class ChatHudMixin {
         }
 
         if (modified) {
-            MutableText result = MutableText.of(
-                    new TranslatableTextContent(translatable.getKey(), translatable.getFallback(), newArgs)
+            MutableComponent result = MutableComponent.create(
+                    new TranslatableContents(translatable.getKey(), translatable.getFallback(), newArgs)
             );
             result.setStyle(original.getStyle());
-            for (Text sibling : original.getSiblings()) result.append(descriptive$processMessage(sibling));
+            for (Component sibling : original.getSiblings()) result.append(descriptive$processMessage(sibling));
             return result;
         }
 
         if (!original.getSiblings().isEmpty()) {
-            MutableText result = MutableText.of(translatable).setStyle(original.getStyle());
-            for (Text sibling : original.getSiblings()) result.append(descriptive$processMessage(sibling));
+            MutableComponent result = MutableComponent.create(translatable).setStyle(original.getStyle());
+            for (Component sibling : original.getSiblings()) result.append(descriptive$processMessage(sibling));
             return result;
         }
 
@@ -109,21 +109,20 @@ public class ChatHudMixin {
     }
 
     @Unique
-    private Text descriptive$resolveNameFromAnySource(String nameString, Text original) {
-        // Source 1: world players
-        if (client.world != null) {
-            for (var player : client.world.getPlayers()) {
+    private Component descriptive$resolveNameFromAnySource(String nameString, Component original) {
+        if (minecraft.level != null) {
+            for (var player : minecraft.level.players()) {
                 String playerName = player.getName().getString();
                 if (nameString.equals(playerName) || nameString.contains(playerName)) {
-                    PlayerAnimationContext.setCurrentPlayer(player.getUuid());
+                    PlayerAnimationContext.setCurrentPlayer(player.getUUID());
                     return TextReplacer.replaceText(original, playerName,
-                            NameBuilder.buildCustomName(player.getUuid(), playerName));
+                            NameBuilder.buildCustomName(player.getUUID(), playerName));
                 }
             }
         }
 
-        if (client.getNetworkHandler() != null) {
-            for (PlayerListEntry entry : client.getNetworkHandler().getPlayerList()) {
+        if (minecraft.getConnection() != null) {
+            for (PlayerInfo entry : minecraft.getConnection().getOnlinePlayers()) {
                 String entryName = entry.getProfile().name();
                 if (nameString.equals(entryName) || nameString.contains(entryName)) {
                     UUID uuid = entry.getProfile().id();
@@ -134,10 +133,10 @@ public class ChatHudMixin {
             }
         }
 
-        if (client.getNetworkHandler() != null) {
+        if (minecraft.getConnection() != null) {
             Map<UUID, CustomNameData> allEntries = CustomNameCache.getAllEntries();
             for (UUID uuid : allEntries.keySet()) {
-                PlayerListEntry listEntry = client.getNetworkHandler().getPlayerListEntry(uuid);
+                PlayerInfo listEntry = minecraft.getConnection().getPlayerInfo(uuid);
                 if (listEntry != null) {
                     String entryName = listEntry.getProfile().name();
                     if (nameString.equals(entryName) || nameString.contains(entryName)) {
@@ -153,25 +152,25 @@ public class ChatHudMixin {
     }
 
     @Unique
-    private Text descriptive$processRegularText(Text text) {
-        if (client.world == null) return text;
+    private Component descriptive$processRegularText(Component text) {
+        if (minecraft.level == null) return text;
 
         String textString = text.getString();
-        Text result = text;
+        Component result = text;
 
-        for (var player : client.world.getPlayers()) {
+        for (var player : minecraft.level.players()) {
             String playerName = player.getName().getString();
             if (textString.contains(playerName)) {
-                PlayerAnimationContext.setCurrentPlayer(player.getUuid());
+                PlayerAnimationContext.setCurrentPlayer(player.getUUID());
                 result = TextReplacer.replaceText(result, playerName,
-                        NameBuilder.buildCustomName(player.getUuid(), playerName));
+                        NameBuilder.buildCustomName(player.getUUID(), playerName));
             }
         }
 
         if (!text.getSiblings().isEmpty()) {
-            MutableText mutableResult = result.copy();
+            MutableComponent mutableResult = result.copy();
             mutableResult.getSiblings().clear();
-            for (Text sibling : text.getSiblings()) mutableResult.append(descriptive$processMessage(sibling));
+            for (Component sibling : text.getSiblings()) mutableResult.append(descriptive$processMessage(sibling));
             return mutableResult;
         }
 

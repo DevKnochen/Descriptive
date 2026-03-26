@@ -20,31 +20,30 @@ import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.sugar.Local;
 import de.devknochen.descriptive.client.animation.PlayerAnimationContext;
 import de.devknochen.descriptive.common.util.NameBuilder;
-import net.minecraft.client.gui.screen.ingame.BookSigningScreen;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.screens.inventory.BookSignScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
-
-@Mixin(BookSigningScreen.class)
+@Mixin(BookSignScreen.class)
 public class BookSigningScreenMixin {
 
     @ModifyExpressionValue(
-            method = "<init>(Lnet/minecraft/client/gui/screen/ingame/BookEditScreen;Lnet/minecraft/entity/player/PlayerEntity;Lnet/minecraft/util/Hand;Ljava/util/List;)V",
+            method = "<init>(Lnet/minecraft/client/gui/screens/inventory/BookEditScreen;Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/InteractionHand;Ljava/util/List;)V",
             at = @At(
                     value = "INVOKE",
-                    target = "Lnet/minecraft/text/Text;translatable(Ljava/lang/String;[Ljava/lang/Object;)Lnet/minecraft/text/MutableText;"
+                    target = "Lnet/minecraft/network/chat/Component;translatable(Ljava/lang/String;[Ljava/lang/Object;)Lnet/minecraft/network/chat/MutableComponent;"
             )
     )
-    private MutableText descriptive$modifyBylineText(MutableText original,
-                                                     @Local(argsOnly = true) PlayerEntity player) {
+    private MutableComponent descriptive$modifyBylineText(MutableComponent original,
+                                                          @Local(argsOnly = true) Player player) {
         if (original == null || player == null) return original;
         try {
-            PlayerAnimationContext.setCurrentPlayer(player.getUuid());
-            Text customName = NameBuilder.buildCustomName(player.getUuid(), player.getName().getString());
-            return Text.translatable("book.byAuthor", customName);
+            PlayerAnimationContext.setCurrentPlayer(player.getUUID());
+            Component customName = NameBuilder.buildCustomName(player.getUUID(), player.getName().getString());
+            return Component.translatable("book.byAuthor", customName);
         } catch (Exception ignored) {
             PlayerAnimationContext.clear();
             return original;

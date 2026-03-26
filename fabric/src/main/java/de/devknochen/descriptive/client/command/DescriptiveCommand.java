@@ -28,46 +28,48 @@ import de.devknochen.descriptive.client.network.ServerStatusCache;
 import de.devknochen.descriptive.common.network.packet.CustomNameData;
 import de.devknochen.descriptive.common.util.NameBuilder;
 import de.devknochen.descriptive.config.DescriptiveClientConfig;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+import org.jspecify.annotations.Nullable;
 
 @SuppressWarnings("unused")
 public class DescriptiveCommand {
 
     public static void register() {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
-                dispatcher.register(ClientCommandManager.literal("descriptive")
-                        .then(ClientCommandManager.literal("config").executes(DescriptiveCommand::openConfig))
-                        .then(ClientCommandManager.literal("debug").executes(DescriptiveCommand::debug))
-                        .then(ClientCommandManager.literal("rebroadcast").executes(DescriptiveCommand::rebroadcast))
-                        .then(ClientCommandManager.literal("test_broadcast").executes(DescriptiveCommand::testBroadcast))
-                        .then(ClientCommandManager.literal("test_render").executes(DescriptiveCommand::testRender))
-                        .then(ClientCommandManager.literal("help").executes(DescriptiveCommand::help))
+                dispatcher.register(ClientCommands.literal("descriptive")
+                        .then(ClientCommands.literal("config").executes(DescriptiveCommand::openConfig))
+                        .then(ClientCommands.literal("debug").executes(DescriptiveCommand::debug))
+                        .then(ClientCommands.literal("rebroadcast").executes(DescriptiveCommand::rebroadcast))
+                        .then(ClientCommands.literal("test_broadcast").executes(DescriptiveCommand::testBroadcast))
+                        .then(ClientCommands.literal("test_render").executes(DescriptiveCommand::testRender))
+                        .then(ClientCommands.literal("help").executes(DescriptiveCommand::help))
                         .executes(DescriptiveCommand::help)
                 )
         );
     }
 
     private static int openConfig(CommandContext<FabricClientCommandSource> context) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client != null) client.execute(() -> client.setScreen(new DescriptiveConfigScreen(client.currentScreen)));
+        Minecraft client = Minecraft.getInstance();
+        @Nullable Screen current = client.screen;
+        client.execute(() -> client.setScreen(new DescriptiveConfigScreen(current)));
         return 1;
     }
 
     private static int debug(CommandContext<FabricClientCommandSource> context) {
-        MinecraftClient client = context.getSource().getClient();
+        Minecraft client = context.getSource().getClient();
         sendMessage(context, "§6=== Descriptive Debug ===");
 
         if (client.player != null) {
             DescriptiveClientConfig config = DescriptiveClient.getInstance().getConfig();
-
             sendMessage(context, "§aLocal Player:");
             sendMessage(context, "  Name: §f" + client.player.getName().getString());
-            sendMessage(context, "  UUID: §f" + client.player.getUuid());
+            sendMessage(context, "  UUID: §f" + client.player.getUUID());
             sendMessage(context, "  Color: §f#" + String.format("%06X", config.getColor()));
             sendMessage(context, "  Bold: §f" + config.isBold() + " §7| Italic: §f" + config.isItalic() +
                     " §7| Underline: §f" + config.isUnderlined() + " §7| Strike: §f" + config.isStrikethrough());
@@ -79,7 +81,7 @@ public class DescriptiveCommand {
 
         sendMessage(context, "");
         sendMessage(context, "§aNetwork:");
-        if (client.getNetworkHandler() != null) {
+        if (client.getConnection() != null) {
             sendMessage(context, "  Connected: §aYES");
             sendMessage(context, "  Mode: " + getNetworkMode(client));
             sendMessage(context, "  Server allows Descriptive: §f" + ServerStatusCache.isServerAllowsDescriptive());
@@ -104,9 +106,9 @@ public class DescriptiveCommand {
         return 1;
     }
 
-    private static String getNetworkMode(MinecraftClient client) {
+    private static String getNetworkMode(Minecraft client) {
         if (!ServerStatusCache.isServerAllowsDescriptive()) return "§cREJECTED";
-        if (client.isInSingleplayer() || client.getServer() != null) return "§aDIRECT §7(local)";
+        if (client.isSingleplayer() || client.getSingleplayerServer() != null) return "§aDIRECT §7(local)";
         if (ClientNetworkHandler.isUsingRelay()) return "§eRELAY";
         return "§aDIRECT";
     }
@@ -122,7 +124,7 @@ public class DescriptiveCommand {
     }
 
     private static int testBroadcast(CommandContext<FabricClientCommandSource> context) {
-        MinecraftClient client = context.getSource().getClient();
+        Minecraft client = context.getSource().getClient();
         if (client.player == null) {
             sendMessage(context, "§cNot in game!");
             return 0;
@@ -135,13 +137,13 @@ public class DescriptiveCommand {
 
         DescriptiveClientConfig config = DescriptiveClient.getInstance().getConfig();
         CustomNameData data = CustomNameData.create(
-                client.player.getUuid(), config.getColor(), config.isBold(), config.isItalic(),
+                client.player.getUUID(), config.getColor(), config.isBold(), config.isItalic(),
                 config.isUnderlined(), config.isStrikethrough(), config.getAnimationTypes(),
                 config.getAnimationSpeed(), config.isAnimationEnabled(), config.getGradientColors()
         );
 
         try {
-            if (ClientPlayNetworking.canSend(CustomNameData.ID)) {
+            if (ClientPlayNetworking.canSend(CustomNameData.TYPE)) {
                 ClientPlayNetworking.send(data);
                 sendMessage(context, "§a✓ Packet sent successfully!");
             } else {
@@ -156,23 +158,23 @@ public class DescriptiveCommand {
     }
 
     private static int testRender(CommandContext<FabricClientCommandSource> context) {
-        MinecraftClient client = context.getSource().getClient();
-        if (client.player == null || client.world == null) {
+        Minecraft client = context.getSource().getClient();
+        if (client.player == null || client.level == null) {
             sendMessage(context, "§cNot in game!");
             return 0;
         }
 
         sendMessage(context, "§6=== Render Test ===");
 
-        for (var player : client.world.getPlayers()) {
+        for (var player : client.level.players()) {
             String playerName = player.getName().getString();
-            var playerUuid = player.getUuid();
+            var playerUuid = player.getUUID();
 
             boolean inCache = CustomNameCache.has(playerUuid);
             sendMessage(context, "§e" + playerName + " §7- Cache: " + (inCache ? "§aYES" : "§cNO"));
 
             PlayerAnimationContext.setCurrentPlayer(playerUuid);
-            Text customName = NameBuilder.buildCustomName(playerUuid, playerName);
+            Component customName = (Component) NameBuilder.buildCustomName(playerUuid, playerName);
             boolean isMarked = AnimatedStyleMarker.shouldAnimate(customName.getStyle());
             sendMessage(context, "  Marked: " + (isMarked ? "§aYES" : "§cNO"));
 
@@ -199,6 +201,6 @@ public class DescriptiveCommand {
     }
 
     private static void sendMessage(CommandContext<FabricClientCommandSource> context, String message) {
-        context.getSource().sendFeedback(Text.literal(message));
+        context.getSource().sendFeedback(Component.literal(message));
     }
 }

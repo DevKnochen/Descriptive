@@ -18,10 +18,10 @@ package de.devknochen.descriptive.common.network.packet;
 
 import de.devknochen.descriptive.Descriptive;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,17 +39,17 @@ public record CustomNameData(
         float animationSpeed,
         boolean animationEnabled,
         List<Integer> gradientColors
-) implements CustomPayload {
+) implements CustomPacketPayload {
 
-    public static final Identifier PACKET_ID = Identifier.of(Descriptive.MOD_ID, "sync");
-    public static final Id<CustomNameData> ID = new Id<>(PACKET_ID);
+    public static final CustomPacketPayload.Type<CustomNameData> TYPE =
+            new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(Descriptive.MOD_ID, "sync"));
     public static final int CURRENT_PROTOCOL_VERSION = 3;
 
-    public static final PacketCodec<PacketByteBuf, CustomNameData> CODEC = new PacketCodec<>() {
+    public static final StreamCodec<RegistryFriendlyByteBuf, CustomNameData> CODEC = new StreamCodec<>() {
         @Override
-        public CustomNameData decode(PacketByteBuf buf) {
+        public CustomNameData decode(RegistryFriendlyByteBuf buf) {
             int version = buf.readVarInt();
-            UUID playerUuid = buf.readUuid();
+            UUID playerUuid = buf.readUUID();
             int color = buf.readInt();
             boolean bold = buf.readBoolean();
             boolean italic = buf.readBoolean();
@@ -64,7 +64,7 @@ public record CustomNameData(
             if (version >= 2) {
                 animationEnabled = buf.readBoolean();
                 int animCount = buf.readVarInt();
-                for (int i = 0; i < animCount; i++) animationTypes.add(buf.readString());
+                for (int i = 0; i < animCount; i++) animationTypes.add(buf.readUtf());
                 animationSpeed = buf.readFloat();
             }
 
@@ -79,33 +79,34 @@ public record CustomNameData(
         }
 
         @Override
-        public void encode(PacketByteBuf buf, CustomNameData data) {
-            buf.writeVarInt(data.protocolVersion);
-            buf.writeUuid(data.playerUuid);
-            buf.writeInt(data.color);
-            buf.writeBoolean(data.bold);
-            buf.writeBoolean(data.italic);
-            buf.writeBoolean(data.underlined);
-            buf.writeBoolean(data.strikethrough);
-            buf.writeBoolean(data.animationEnabled);
-            buf.writeVarInt(data.animationTypes.size());
-            for (String animType : data.animationTypes) buf.writeString(animType);
-            buf.writeFloat(data.animationSpeed);
-            buf.writeVarInt(data.gradientColors.size());
-            for (int c : data.gradientColors) buf.writeInt(c);
+        public void encode(RegistryFriendlyByteBuf buf, CustomNameData data) {
+            buf.writeVarInt(data.protocolVersion());
+            buf.writeUUID(data.playerUuid());
+            buf.writeInt(data.color());
+            buf.writeBoolean(data.bold());
+            buf.writeBoolean(data.italic());
+            buf.writeBoolean(data.underlined());
+            buf.writeBoolean(data.strikethrough());
+            buf.writeBoolean(data.animationEnabled());
+            buf.writeVarInt(data.animationTypes().size());
+            for (String animType : data.animationTypes()) buf.writeUtf(animType);
+            buf.writeFloat(data.animationSpeed());
+            buf.writeVarInt(data.gradientColors().size());
+            for (int c : data.gradientColors()) buf.writeInt(c);
         }
     };
 
     @Override
-    public Id<? extends CustomPayload> getId() { return ID; }
+    @SuppressWarnings("NullableProblems")
+    public CustomPacketPayload.Type<? extends CustomPacketPayload> type() { return TYPE; }
 
     public static void register() {
         try {
-            PayloadTypeRegistry.playC2S().register(ID, CODEC);
+            PayloadTypeRegistry.serverboundPlay().register(TYPE, CODEC);
         } catch (IllegalArgumentException ignored) {}
 
         try {
-            PayloadTypeRegistry.playS2C().register(ID, CODEC);
+            PayloadTypeRegistry.clientboundPlay().register(TYPE, CODEC);
         } catch (IllegalArgumentException ignored) {}
 
         ServerStatusPayload.register();

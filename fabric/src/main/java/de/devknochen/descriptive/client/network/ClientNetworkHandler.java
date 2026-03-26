@@ -24,8 +24,8 @@ import de.devknochen.descriptive.common.network.packet.ServerStatusPayload;
 import de.devknochen.descriptive.config.DescriptiveClientConfig;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 
 public class ClientNetworkHandler {
 
@@ -35,42 +35,41 @@ public class ClientNetworkHandler {
     @SuppressWarnings("resource")
     public static void initialize() {
         Descriptive.LOGGER.info("Initializing ClientNetworkHandler");
-
         relayClient = new RelayClient();
 
-        ClientPlayNetworking.registerGlobalReceiver(CustomNameData.ID, (payload, context) -> {
+        ClientPlayNetworking.registerGlobalReceiver(CustomNameData.TYPE, (payload, context) -> {
             if (payload.protocolVersion() != CustomNameData.CURRENT_PROTOCOL_VERSION) {
                 Descriptive.LOGGER.warn("Incompatible protocol version: {} (expected {})",
                         payload.protocolVersion(), CustomNameData.CURRENT_PROTOCOL_VERSION);
                 return;
             }
-            MinecraftClient client = context.client();
-            if (client.player != null && client.player.getUuid().equals(payload.playerUuid())) return;
+            Minecraft client = context.client();
+            if (client.player != null && client.player.getUUID().equals(payload.playerUuid())) return;
             client.execute(() -> CustomNameCache.put(payload));
         });
 
-        ClientPlayNetworking.registerGlobalReceiver(ServerStatusPayload.ID, (payload, context) ->
+        ClientPlayNetworking.registerGlobalReceiver(ServerStatusPayload.TYPE, (payload, context) ->
                 context.client().execute(() -> {
                     ServerStatusCache.setServerAllowsDescriptive(payload.enabled());
                     if (!payload.enabled()) {
-                        context.client().inGameHud.getChatHud().addMessage(
-                                Text.literal("§7[Descriptive] §cThis server has disabled custom name display. Only your own name is animated.")
-                        );
+                        // gui.getChat().addMessage() is private in 26.1 — use sendSystemMessage instead
+                        if (context.client().player != null) {
+                            context.client().player.sendSystemMessage(
+                                    Component.literal("§7[Descriptive] §cThis server has disabled custom name display. Only your own name is animated.")
+                            );
+                        }
                     }
                 }));
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             Descriptive.LOGGER.info("Client joined server");
-            String serverAddress = handler.getConnection().getAddress().toString();
+            String serverAddress = handler.getConnection().getRemoteAddress().toString();
             client.execute(() -> { if (client.player != null) detectModeAndBroadcast(client, serverAddress); });
         });
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             Descriptive.LOGGER.info("Disconnected from server");
-            if (usingRelay) {
-                relayClient.disconnect();
-                usingRelay = false;
-            }
+            if (usingRelay) { relayClient.disconnect(); usingRelay = false; }
             CustomNameCache.clear();
             ServerStatusCache.reset();
         });
@@ -78,8 +77,9 @@ public class ClientNetworkHandler {
         Descriptive.LOGGER.info("ClientNetworkHandler initialized");
     }
 
-    private static void detectModeAndBroadcast(MinecraftClient client, String serverAddress) {
-        if (client.isInSingleplayer() || client.getServer() != null || ClientPlayNetworking.canSend(CustomNameData.ID)) {
+    private static void detectModeAndBroadcast(Minecraft client, String serverAddress) {
+        if (client.isSingleplayer() || client.getSingleplayerServer() != null
+                || ClientPlayNetworking.canSend(CustomNameData.TYPE)) {
             Descriptive.LOGGER.info("Using DIRECT mode");
             usingRelay = false;
             broadcastDirect(client);
@@ -90,45 +90,41 @@ public class ClientNetworkHandler {
         }
     }
 
-    private static CustomNameData buildCustomNameData(MinecraftClient client) {
+    private static CustomNameData buildCustomNameData(Minecraft client) {
         assert client.player != null;
         DescriptiveClientConfig config = DescriptiveClient.getInstance().getConfig();
         return CustomNameData.create(
-                client.player.getUuid(),
+                client.player.getUUID(),
                 config.getColor(), config.isBold(), config.isItalic(),
                 config.isUnderlined(), config.isStrikethrough(),
-                config.getAnimationTypes(), config.getAnimationSpeed(), config.isAnimationEnabled(),
-                config.getGradientColors()
+                config.getAnimationTypes(), config.getAnimationSpeed(),
+                config.isAnimationEnabled(), config.getGradientColors()
         );
     }
 
-    private static void broadcastDirect(MinecraftClient client) {
+    private static void broadcastDirect(Minecraft client) {
         if (client.player == null) return;
-        try {
-            ClientPlayNetworking.send(buildCustomNameData(client));
-        } catch (Exception e) {
-            Descriptive.LOGGER.error("Failed to send packet", e);
-        }
+        try { ClientPlayNetworking.send(buildCustomNameData(client)); }
+        catch (Exception e) { Descriptive.LOGGER.error("Failed to send packet", e); }
     }
 
-    private static void connectToRelay(MinecraftClient client, String serverAddress) {
+    private static void connectToRelay(Minecraft client, String serverAddress) {
         if (client.player == null) return;
-        var playerUuid = client.player.getUuid();
-        relayClient.connect(serverAddress, playerUuid)
-                .thenAccept(success -> {
-                    if (success && client.player != null) broadcastViaRelay(client);
-                    else if (!success) Descriptive.LOGGER.warn("Failed to connect to relay");
-                });
+        var playerUuid = client.player.getUUID();
+        relayClient.connect(serverAddress, playerUuid).thenAccept(success -> {
+            if (success && client.player != null) broadcastViaRelay(client);
+            else if (!success) Descriptive.LOGGER.warn("Failed to connect to relay");
+        });
     }
 
-    private static void broadcastViaRelay(MinecraftClient client) {
+    private static void broadcastViaRelay(Minecraft client) {
         if (client.player == null) return;
         relayClient.broadcastCustomName(buildCustomNameData(client));
     }
 
     public static void updateCustomName() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player == null || client.getNetworkHandler() == null) return;
+        Minecraft client = Minecraft.getInstance();
+        if (client.player == null || client.getConnection() == null) return;
         if (usingRelay) broadcastViaRelay(client);
         else broadcastDirect(client);
     }

@@ -18,9 +18,9 @@ package de.devknochen.descriptive.client.mixin;
 
 import de.devknochen.descriptive.client.animation.PlayerAnimationContext;
 import de.devknochen.descriptive.common.util.NameBuilder;
-import net.minecraft.client.gui.hud.PlayerListHud;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.components.PlayerTabOverlay;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -28,18 +28,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.UUID;
 
-@Mixin(PlayerListHud.class)
+@Mixin(PlayerTabOverlay.class)
 public class PlayerListHudMixin {
 
-    @Inject(method = "getPlayerName", at = @At("HEAD"), cancellable = true)
-    private void onGetPlayerName(PlayerListEntry entry, CallbackInfoReturnable<Text> cir) {
+    @Inject(method = "getNameForDisplay", at = @At("HEAD"), cancellable = true)
+    private void onGetPlayerName(PlayerInfo entry, CallbackInfoReturnable<Component> cir) {
         try {
             UUID playerUuid = entry.getProfile().id();
             String originalName = entry.getProfile().name();
 
             PlayerAnimationContext.setCurrentPlayer(playerUuid);
 
-            Text customName = NameBuilder.buildCustomName(playerUuid, originalName);
+            Component customName = NameBuilder.buildCustomName(playerUuid, originalName);
 
             cir.setReturnValue(customName);
 

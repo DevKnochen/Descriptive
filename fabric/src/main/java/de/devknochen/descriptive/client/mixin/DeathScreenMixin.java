@@ -20,15 +20,14 @@ import de.devknochen.descriptive.Descriptive;
 import de.devknochen.descriptive.client.animation.PlayerAnimationContext;
 import de.devknochen.descriptive.common.util.NameBuilder;
 import de.devknochen.descriptive.common.util.TextReplacer;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.DeathScreen;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.DeathScreen;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.chat.Component;
 import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -37,32 +36,32 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class DeathScreenMixin {
 
     @Mutable
-    @Shadow @Final private @Nullable Text message;
+    @Final private @Nullable Component message;
 
     @Inject(
-            method = "<init>(Lnet/minecraft/text/Text;ZLnet/minecraft/client/network/ClientPlayerEntity;)V",
+            method = "<init>(Lnet/minecraft/network/chat/Component;ZLnet/minecraft/client/player/LocalPlayer;)V",
             at = @At("RETURN")
     )
-    private void modifyDeathMessage(@Nullable Text message, boolean isHardcore,
-                                    ClientPlayerEntity decedent, CallbackInfo ci) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    private void modifyDeathMessage(@Nullable Component message, boolean isHardcore,
+                                    LocalPlayer decedent, CallbackInfo ci) {
+        Minecraft client = Minecraft.getInstance();
 
-        if (client.player == null || client.world == null || this.message == null) return;
+        if (client.player == null || client.level == null || this.message == null) return;
 
         Descriptive.LOGGER.info("[DeathScreen] Processing death message: {}", this.message.getString());
 
-        Text result = this.message;
+        Component result = this.message;
         String messageString = result.getString();
 
         try {
-            for (var player : client.world.getPlayers()) {
+            for (var player : client.level.players()) {
                 String playerName = player.getName().getString();
 
                 if (messageString.contains(playerName)) {
                     Descriptive.LOGGER.info("[DeathScreen] Found player name '{}' in death message", playerName);
-                    PlayerAnimationContext.setCurrentPlayer(player.getUuid());
+                    PlayerAnimationContext.setCurrentPlayer(player.getUUID());
                     result = TextReplacer.replaceText(result, playerName,
-                            NameBuilder.buildCustomName(player.getUuid(), playerName));
+                            NameBuilder.buildCustomName(player.getUUID(), playerName));
                     Descriptive.LOGGER.info("[DeathScreen] Replaced '{}'", playerName);
                 }
             }

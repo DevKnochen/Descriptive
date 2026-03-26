@@ -18,33 +18,35 @@ package de.devknochen.descriptive.common.network.packet;
 
 import de.devknochen.descriptive.Descriptive;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
-public record ServerStatusPayload(boolean enabled) implements CustomPayload {
+public record ServerStatusPayload(boolean enabled) implements CustomPacketPayload {
 
-    public static final Id<ServerStatusPayload> ID =
-            new Id<>(Identifier.of(Descriptive.MOD_ID, "server_status"));
+    public static final CustomPacketPayload.Type<ServerStatusPayload> TYPE =
+            new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(Descriptive.MOD_ID, "server_status"));
 
-    public static final PacketCodec<PacketByteBuf, ServerStatusPayload> CODEC = new PacketCodec<>() {
+    public static final StreamCodec<RegistryFriendlyByteBuf, ServerStatusPayload> CODEC = new StreamCodec<>() {
         @Override
-        public ServerStatusPayload decode(PacketByteBuf buf) {
+        public ServerStatusPayload decode(RegistryFriendlyByteBuf buf) {
             return new ServerStatusPayload(buf.readBoolean());
         }
 
         @Override
-        public void encode(PacketByteBuf buf, ServerStatusPayload p) {
-            buf.writeBoolean(p.enabled);
+        public void encode(RegistryFriendlyByteBuf buf, ServerStatusPayload p) {
+            buf.writeBoolean(p.enabled());
         }
     };
 
     @Override
-    public Id<? extends CustomPayload> getId() { return ID; }
+    @SuppressWarnings("NullableProblems")
+    public CustomPacketPayload.Type<? extends CustomPacketPayload> type() { return TYPE; }
 
     public static void register() {
-        try { PayloadTypeRegistry.playS2C().register(ID, CODEC); }
-        catch (IllegalArgumentException ignored) {}
+        try {
+            PayloadTypeRegistry.clientboundPlay().register(TYPE, CODEC);
+        } catch (IllegalArgumentException ignored) {}
     }
 }
