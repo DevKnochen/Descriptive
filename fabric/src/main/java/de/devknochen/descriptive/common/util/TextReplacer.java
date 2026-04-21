@@ -41,18 +41,11 @@ public class TextReplacer {
             }
         }
 
-        if (!original.getSiblings().isEmpty()) {
-            MutableComponent result = MutableComponent.create(content).setStyle(original.getStyle());
-            for (Component sibling : original.getSiblings())
-                result.append(replaceText(sibling, target, replacement));
-            return result;
-        }
-
-        if (original.getString().contains(target))
-            return replaceInString(original.getString(), target, replacement, original.getStyle());
+        if (original.getSiblings().isEmpty()) return original;
 
         MutableComponent result = MutableComponent.create(content).setStyle(original.getStyle());
-        for (Component sibling : original.getSiblings()) result.append(sibling);
+        for (Component sibling : original.getSiblings())
+            result.append(replaceText(sibling, target, replacement));
         return result;
     }
 
