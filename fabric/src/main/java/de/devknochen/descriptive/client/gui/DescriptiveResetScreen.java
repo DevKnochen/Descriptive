@@ -23,11 +23,12 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import java.util.*;
 
 public class DescriptiveResetScreen extends Screen {
-    private static final int MARGIN=30, LINE_H=13;
+    private static final int MARGIN=30, LINE_H=13, MIN_CONTENT_WIDTH=180, MAX_CONTENT_WIDTH=420;
     private record ResetLine(String icon, int iconColor, String text){}
     private static final ResetLine[] CONSEQUENCES = {
             new ResetLine("✘",0xFFFF5555,"Custom color will be reset to white."),
@@ -46,20 +47,18 @@ public class DescriptiveResetScreen extends Screen {
     @Override
     protected void init() {
         int cx=width/2, bY=height-30, bW=100;
-        this.addRenderableWidget(Button.builder(Component.literal("Cancel"),_b->{if(minecraft!=null)minecraft.setScreen(parent);}).bounds(cx-bW-4,bY,bW,20).build());
-        this.addRenderableWidget(Button.builder(Component.literal("Reset").withStyle(s->s.withBold(true).withColor(ChatFormatting.RED)),_b->{
+        this.addRenderableWidget(Button.builder(Component.literal("Cancel"),_->minecraft.setScreen(parent)).bounds(cx-bW-4,bY,bW,20).build());
+        this.addRenderableWidget(Button.builder(Component.literal("Reset").withStyle(s->s.withBold(true).withColor(ChatFormatting.RED)),_->{
             doReset();
-            if(minecraft!=null){
-                if(parent instanceof DescriptiveConfigScreen cs)minecraft.setScreen(new DescriptiveConfigScreen(cs.getParent()));
-                else minecraft.setScreen(parent);
-            }
+            if(parent instanceof DescriptiveConfigScreen cs)minecraft.setScreen(new DescriptiveConfigScreen(cs.getParent()));
+            else minecraft.setScreen(parent);
         }).bounds(cx+4,bY,bW,20).build());
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float dt) {
+    public void extractRenderState(@NonNull GuiGraphicsExtractor g, int mx, int my, float dt) {
         super.extractRenderState(g, mx, my, dt);
-        int cx=width/2, cw=Math.min(420,width-MARGIN*2), left=cx-cw/2, y=12;
+        int cx=width/2, cw=Math.clamp(width-MARGIN*2,MIN_CONTENT_WIDTH,MAX_CONTENT_WIDTH), left=cx-cw/2, y=12;
         g.centeredText(font,Component.literal("Reset Settings").withStyle(s->s.withBold(true)),cx,y,0xFFFFFFFF); y+=14;
         g.fill(left,y,left+cw,y+1,0x44FFFFFF); y+=10;
         g.centeredText(font,Component.literal("The following settings will be permanently reset to their defaults."),cx,y,0xFFCCCCCC); y+=LINE_H+8;
@@ -76,5 +75,5 @@ public class DescriptiveResetScreen extends Screen {
         c.setAnimationTypesInternal(new ArrayList<>()); c.setAnimationSpeedInternal(1.0f);
         c.setGradientColors(List.of(0xFF0000,0x0000FF)); c.setDisabledPlayers(Collections.emptySet()); c.save();
     }
-    @Override public void onClose(){if(minecraft!=null)minecraft.setScreen(parent);}
+    @Override public void onClose(){minecraft.setScreen(parent);}
 }
