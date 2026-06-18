@@ -56,8 +56,8 @@ public class DescriptiveCommand {
 
     private static int openConfig(CommandContext<FabricClientCommandSource> context) {
         Minecraft client = Minecraft.getInstance();
-        @Nullable Screen current = client.screen;
-        client.execute(() -> client.setScreen(new DescriptiveConfigScreen(current)));
+        @Nullable Screen current = client.gui.screen();
+        client.execute(() -> client.gui.setScreen(new DescriptiveConfigScreen(current)));
         return 1;
     }
 
@@ -108,7 +108,7 @@ public class DescriptiveCommand {
 
     private static String getNetworkMode(Minecraft client) {
         if (!ServerStatusCache.isServerAllowsDescriptive()) return "§cREJECTED";
-        if (client.isSingleplayer() || client.getSingleplayerServer() != null) return "§aDIRECT §7(local)";
+        if (client.isLocalServer() || client.getSingleplayerServer() != null) return "§aDIRECT §7(local)";
         if (ClientNetworkHandler.isUsingRelay()) return "§eRELAY";
         return "§aDIRECT";
     }

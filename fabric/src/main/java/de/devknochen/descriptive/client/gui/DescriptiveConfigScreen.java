@@ -94,7 +94,6 @@ public class DescriptiveConfigScreen extends Screen {
 
         int cx = this.width / 2, contentWidth = getContentWidth(), left = cx - contentWidth / 2, y = 12;
         ColorMode initialMode = colorMode;
-        // CycleButton.builder(valueStringifier, defaultValueSupplier) - 26.1 signature
         int widgetY = contentY(y);
         addContentWidget(CycleButton.<ColorMode>builder(
                         mode -> Component.literal(switch (mode) {
@@ -180,16 +179,16 @@ public class DescriptiveConfigScreen extends Screen {
         int navW=Math.clamp((availableButtonWidth-8)/2,70,150);
         int navL=cx-(navW*2+8)/2;
         int bW=Math.clamp((availableButtonWidth-8)/3,58,100), bL=cx-(bW*3+8)/2;
-        this.addRenderableWidget(Button.builder(Component.literal("Toggle Relay..."),_->minecraft.setScreen(new DescriptiveRelayScreen(this))).bounds(navL,bY-24,navW,20).build());
-        this.addRenderableWidget(Button.builder(Component.literal("Rendering Toggles..."),_->minecraft.setScreen(new DescriptiveToggleScreen(this))).bounds(navL+navW+8,bY-24,navW,20).build());
-        this.addRenderableWidget(Button.builder(Component.literal("§cReset..."),_->minecraft.setScreen(new DescriptiveResetScreen(this))).bounds(bL,bY,bW,20).build());
+        this.addRenderableWidget(Button.builder(Component.literal("Toggle Relay..."),_->minecraft.gui.setScreen(new DescriptiveRelayScreen(this))).bounds(navL,bY-24,navW,20).build());
+        this.addRenderableWidget(Button.builder(Component.literal("Rendering Toggles..."),_->minecraft.gui.setScreen(new DescriptiveToggleScreen(this))).bounds(navL+navW+8,bY-24,navW,20).build());
+        this.addRenderableWidget(Button.builder(Component.literal("§cReset..."),_->minecraft.gui.setScreen(new DescriptiveResetScreen(this))).bounds(bL,bY,bW,20).build());
         this.addRenderableWidget(Button.builder(Component.literal("Cancel"),_->cancelAndClose()).bounds(bL+bW+4,bY,bW,20).build());
         this.addRenderableWidget(Button.builder(Component.literal("Apply"),_->{
             config.setColorInternal(previewColor); config.setBoldInternal(previewBold);
             config.setItalicInternal(previewItalic); config.setUnderlinedInternal(previewUnderlined);
             config.setStrikethroughInternal(previewStrikethrough);
             config.setGradientColorsInternal(List.of(gradientColor1,gradientColor2));
-            config.save(); minecraft.setScreen(parent);
+            config.save(); minecraft.gui.setScreen(parent);
         }).bounds(bL+(bW+4)*2,bY,bW,20).build());
     }
 
@@ -278,7 +277,7 @@ public class DescriptiveConfigScreen extends Screen {
         config.setAnimationTypesInternal(originalAnimationTypes);
         config.setAnimationSpeedInternal(originalAnimationSpeed);
         config.setGradientColorsInternal(List.of(originalGradientColor1,originalGradientColor2));
-        minecraft.setScreen(parent);
+        minecraft.gui.setScreen(parent);
     }
     @Override public void onClose(){cancelAndClose();}
     private void onHexInputChanged(String hex){

@@ -52,7 +52,6 @@ public class ClientNetworkHandler {
                 context.client().execute(() -> {
                     ServerStatusCache.setServerAllowsDescriptive(payload.enabled());
                     if (!payload.enabled()) {
-                        // gui.getChat().addMessage() is private in 26.1 — use sendSystemMessage instead
                         if (context.client().player != null) {
                             context.client().player.sendSystemMessage(
                                     Component.literal("§7[Descriptive] §cThis server has disabled custom name display. Only your own name is animated.")
@@ -78,7 +77,7 @@ public class ClientNetworkHandler {
     }
 
     private static void detectModeAndBroadcast(Minecraft client, String serverAddress) {
-        if (client.isSingleplayer() || client.getSingleplayerServer() != null
+        if (client.isLocalServer() || client.getSingleplayerServer() != null
                 || ClientPlayNetworking.canSend(CustomNameData.TYPE)) {
             Descriptive.LOGGER.info("Using DIRECT mode");
             usingRelay = false;

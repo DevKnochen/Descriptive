@@ -87,7 +87,7 @@ public class DescriptiveRelayScreen extends Screen {
         if(clampScroll()){reinitialize();return;}
         addContentWidget(acceptCheckbox,checkboxY);
         int bY=height-30, bW=100;
-        this.addRenderableWidget(Button.builder(Component.literal("Go Back"),_->minecraft.setScreen(parent)).bounds(cx-bW-4,bY,bW,20).build());
+        this.addRenderableWidget(Button.builder(Component.literal("Go Back"),_->minecraft.gui.setScreen(parent)).bounds(cx-bW-4,bY,bW,20).build());
         toggleButton=Button.builder(toggleLabel(relayEnabled),button->{
             relayEnabled=!relayEnabled; config.setRelayEnabled(relayEnabled); config.save(); button.setMessage(toggleLabel(relayEnabled));
         }).bounds(cx+4,bY,bW,20).build();
@@ -211,5 +211,5 @@ public class DescriptiveRelayScreen extends Screen {
     }
     private void reinitialize(){clearWidgets();init();}
     private int scrollStep(double verticalAmount){return verticalAmount>0?18:verticalAmount<0?-18:0;}
-    @Override public void onClose(){minecraft.setScreen(parent);}
+    @Override public void onClose(){minecraft.gui.setScreen(parent);}
 }
