@@ -47,11 +47,11 @@ public class DescriptiveResetScreen extends Screen {
     @Override
     protected void init() {
         int cx=width/2, bY=height-30, bW=100;
-        this.addRenderableWidget(Button.builder(Component.literal("Cancel"),_->minecraft.setScreen(parent)).bounds(cx-bW-4,bY,bW,20).build());
+        this.addRenderableWidget(Button.builder(Component.literal("Cancel"),_->minecraft.gui.setScreen(parent)).bounds(cx-bW-4,bY,bW,20).build());
         this.addRenderableWidget(Button.builder(Component.literal("Reset").withStyle(s->s.withBold(true).withColor(ChatFormatting.RED)),_->{
             doReset();
-            if(parent instanceof DescriptiveConfigScreen cs)minecraft.setScreen(new DescriptiveConfigScreen(cs.getParent()));
-            else minecraft.setScreen(parent);
+            if(parent instanceof DescriptiveConfigScreen cs)minecraft.gui.setScreen(new DescriptiveConfigScreen(cs.getParent()));
+            else minecraft.gui.setScreen(parent);
         }).bounds(cx+4,bY,bW,20).build());
     }
 
@@ -75,5 +75,5 @@ public class DescriptiveResetScreen extends Screen {
         c.setAnimationTypesInternal(new ArrayList<>()); c.setAnimationSpeedInternal(1.0f);
         c.setGradientColors(List.of(0xFF0000,0x0000FF)); c.setDisabledPlayers(Collections.emptySet()); c.save();
     }
-    @Override public void onClose(){minecraft.setScreen(parent);}
+    @Override public void onClose(){minecraft.gui.setScreen(parent);}
 }

@@ -41,8 +41,8 @@ public class KeybindingHandler {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (configKeyBinding.consumeClick()) {
-                if (client.screen == null) {
-                    client.setScreen(new DescriptiveConfigScreen(null));
+                if (client.gui.screen() == null) {
+                    client.gui.setScreen(new DescriptiveConfigScreen(null));
                 }
             }
         });

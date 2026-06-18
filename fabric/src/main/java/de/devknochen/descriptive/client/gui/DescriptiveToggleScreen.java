@@ -88,8 +88,8 @@ public class DescriptiveToggleScreen extends Screen {
     private Component toggleLabel(boolean on) {
         return Component.literal(on?"✔ Enabled":"✘ Disabled").withStyle(s->s.withBold(true).withColor(on?ChatFormatting.GREEN:ChatFormatting.RED));
     }
-    private void applyAndClose(){config.setDisabledPlayers(pendingDisabled);config.save();minecraft.setScreen(parent);}
-    private void cancelAndClose(){config.setDisabledPlayers(originalDisabled);minecraft.setScreen(parent);}
+    private void applyAndClose(){config.setDisabledPlayers(pendingDisabled);config.save();minecraft.gui.setScreen(parent);}
+    private void cancelAndClose(){config.setDisabledPlayers(originalDisabled);minecraft.gui.setScreen(parent);}
     @Override public void onClose(){cancelAndClose();}
 
     @Override
